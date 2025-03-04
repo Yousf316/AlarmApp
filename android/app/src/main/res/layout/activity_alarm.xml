@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:background="@android:color/black">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="المنبه يرن!"
+        android:textSize="24sp"
+        android:textColor="@android:color/white" />
+
+    <Button
+        android:id="@+id/stopAlarmButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="إيقاف المنبه"
+        android:layout_marginTop="20dp"
+        android:padding="10dp"
+        android:background="@android:color/holo_red_light" />
+</LinearLayout>
