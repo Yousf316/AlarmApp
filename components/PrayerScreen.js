@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { getPrayerTimesByCity } from '../api/prayerTimes';
+import PrayerTimeSelector from './PrayerTimeSelector';
 
 // تحويل الوقت إلى صيغة 12 ساعة
 const convertTo12HourFormat = (time) => {
@@ -14,30 +15,39 @@ const convertTo12HourFormat = (time) => {
   return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
 };
 
-const PrayerScreen = () => {
+
+const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setLoading,setprayer) => {
+    try {
+     
+
+      const timings = await getPrayerTimesByCity(city, country);
+      //console.log("Prayer Times:", timings);
+
+      if (timings) {
+        setPrayerTimes(timings);
+        setprayer(timings);
+      }
+    } catch (error) {
+      console.error("Error fetching prayer times:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+const PrayerScreen = ({setprayer}) => {
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [loading, setLoading] = useState(true);
 
+
+  const handleCitySelect = async (city, country) => {
+    console.log("Selected City:", city, country);
+    await fetchPrayerTimes(city, country,setPrayerTimes,setLoading,setprayer);
+  };
+  
   useEffect(() => {
-    const fetchPrayerTimes = async () => {
-      try {
-        const city = "Jeddah";
-        const country = "SA";
+   
 
-        const timings = await getPrayerTimesByCity(city, country);
-        console.log("Prayer Times:", timings);
-
-        if (timings) {
-          setPrayerTimes(timings);
-        }
-      } catch (error) {
-        console.error("Error fetching prayer times:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPrayerTimes();
+    fetchPrayerTimes("Jeddah","SA",setPrayerTimes,setLoading,setprayer);
   }, []);
 
   if (loading) {
@@ -50,6 +60,8 @@ const PrayerScreen = () => {
 
   return (
     <View>
+              <PrayerTimeSelector onSelect={handleCitySelect} />
+        <Text>أوقات الصلاة لمدينة جدة:</Text>
       <Text>الفجر: {convertTo12HourFormat(prayerTimes?.Fajr)}</Text>
       <Text>الظهر: {convertTo12HourFormat(prayerTimes?.Dhuhr)}</Text>
       <Text>العصر: {convertTo12HourFormat(prayerTimes?.Asr)}</Text>

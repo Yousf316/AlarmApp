@@ -7,6 +7,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.Build
 
 class AlarmService : Service() {
     private var mediaPlayer: MediaPlayer? = null
@@ -15,15 +16,15 @@ class AlarmService : Service() {
     override fun onCreate() {
         super.onCreate()
 
-        // 🔹 منع الجهاز من النوم أثناء تشغيل الخدمة
+        // Prevent the device from sleeping during the service
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "AlarmApp:AlarmWakeLock"
         )
-        wakeLock.acquire(10 * 60 * 1000L) // 10 دقائق
+        wakeLock.acquire(10 * 60 * 1000L) // 10 minutes
 
-        // 🔹 تشغيل صوت المنبه
+        // Play alarm sound
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         mediaPlayer = MediaPlayer().apply {
             setDataSource(this@AlarmService, alarmUri)
@@ -33,12 +34,12 @@ class AlarmService : Service() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
-            isLooping = true // تكرار الصوت حتى يتم إيقافه
+            isLooping = true // Loop the sound until stopped
             prepare()
             start()
         }
 
-        // 🔹 إنشاء إشعار للـ Foreground Service
+        // Create notification for the Foreground Service
         startForeground(1, createNotification())
     }
 
@@ -48,8 +49,10 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
+        mediaPlayer?.apply {
+            stop()
+            release()
+        }
         wakeLock.release()
     }
 
@@ -60,28 +63,31 @@ class AlarmService : Service() {
         val channelName = "Alarm Notification"
         val notificationManager = getSystemService(NotificationManager::class.java)
 
-        // 🔹 إنشاء قناة الإشعارات للإصدارات الحديثة
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        // Create notification channel for newer Android versions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
                 channelName,
                 NotificationManager.IMPORTANCE_HIGH
-            )
+            ).apply {
+                description = "This channel is used for alarm notifications"
+            }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // 🔹 إعداد زر "إيقاف" في الإشعار
+        // Set up "Stop" button in the notification
         val stopIntent = Intent(this, StopAlarmReceiver::class.java)
         val stopPendingIntent = PendingIntent.getBroadcast(
             this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return Notification.Builder(this, channelId)
-            .setContentTitle("المنبه يعمل")
-            .setContentText("اضغط لإيقاف المنبه")
+            .setContentTitle("Alarm is ringing")
+            .setContentText("Tap to stop the alarm")
             .setSmallIcon(R.drawable.ic_alarm)
-            .addAction(android.R.drawable.ic_delete, "إيقاف", stopPendingIntent)
-            .setOngoing(true) // يمنع سحب الإشعار لإيقاف الخدمة
+            .addAction(android.R.drawable.ic_delete, "Stop", stopPendingIntent)
+            .setOngoing(true) // Prevent the notification from being dismissed
             .build()
     }
 }
+

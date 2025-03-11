@@ -4,7 +4,7 @@ export const getPrayerTimesByCity = async (city, country) => {
         `http://api.aladhan.com/v1/timingsByCity?city=${city}&country=${country}&method=4`
       );
       const data = await response.json();
-  
+      console.log("API Response:", data);
       if (data.code === 200) {
         return data.data.timings;
       } else {
