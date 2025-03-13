@@ -8,10 +8,9 @@ const { AlarmModule } = NativeModules;
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
-  const [hour, setHour] = useState(""); // إدخال ساعة المنبه
-  const [minute, setMinute] = useState(""); // إدخال دقيقة المنبه
-  const [prayer, setprayer] = useState({}); // إدخال دقيقة المنبه
-
+  const [hour, setHour] = useState("0"); 
+  const [minute, setMinute] = useState("5"); 
+  const [prayer, setprayer] = useState({}); 
   useEffect(() => {
     initDB();
     fetchAlarms();
