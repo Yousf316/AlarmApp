@@ -1,22 +1,17 @@
+// App.js
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import BottomTabNavigator from "./src/navigation/BottomTabNavigator";
+import { PrayerProvider } from "./src/context/PrayerContext"; // Import PrayerProvider
 
-import { View } from 'react-native';
-import React from 'react';
-import AlarmList from './components/AlarmList';
-
-
-
-
-
-function App() {
- 
+const App = () => {
   return (
-    
-    <View>
-      <AlarmList/>
-    </View>
+    <PrayerProvider>
+      <NavigationContainer>
+        <BottomTabNavigator />
+      </NavigationContainer>
+    </PrayerProvider>
   );
-}
-
-
+};
 
 export default App;

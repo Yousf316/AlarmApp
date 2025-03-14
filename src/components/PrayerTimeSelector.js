@@ -27,10 +27,11 @@ const citiesByCountry = {
 const PrayerTimeSelector = ({ onSelect }) => {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
+  const [selectedCityar, setSelectedCityar] = useState(null);
 
   useEffect(() => {
     if (selectedCountry && selectedCity) {
-      onSelect(selectedCity, selectedCountry);
+      onSelect(selectedCity, selectedCountry,selectedCityar);
     }
   }, [selectedCity, selectedCountry]);
 
@@ -56,11 +57,17 @@ const PrayerTimeSelector = ({ onSelect }) => {
           <Text style={styles.label}>اختر المدينة:</Text>
           <Picker
             selectedValue={selectedCity}
-            onValueChange={(value) => setSelectedCity(value)}
+            onValueChange={(value) =>{ setSelectedCity(value)
+              console.log("Selected City:", value);
+              if(value!= null)
+              setSelectedCityar(citiesByCountry[selectedCountry].find((city) => city.value === value).label)
+            }}
             style={pickerStyles}
+            
           >
-            <Picker.Item label="اختر المدينة..." value={null} />
+            <Picker.Item label="اختر المدينة..." value={null}  />
             {citiesByCountry[selectedCountry]?.map((city) => (
+              
               <Picker.Item key={city.value} label={city.label} value={city.value} />
             ))}
           </Picker>

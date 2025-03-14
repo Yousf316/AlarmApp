@@ -18,15 +18,20 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         val scheduler = AlarmScheduler(reactApplicationContext)
 
         // حساب الوقت بالـ Milliseconds
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, hour)
-        calendar.set(Calendar.MINUTE, minute)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
+       val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            // إذا كان الوقت المحدد في الماضي، أضف يومًا
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_YEAR, 1) // التعديل هنا
+            }
+        }
 
         val timeInMillis = calendar.timeInMillis
-        val requestCode = alarmid // كود فريد لكل منبه
-
+        val requestCode = alarmid
         scheduler.setAlarm(timeInMillis, requestCode)
     }
 

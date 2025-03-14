@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { View, Text, FlatList, Button, Alert, TextInput } from "react-native";
-import { initDB, getAlarms, addAlarm, deleteAlarm } from "../database/db";
+import { initDB, getAlarms, addAlarm, deleteAlarm } from "../../database/db";
 import { NativeModules } from "react-native";
 import PrayerScreen from "./PrayerScreen";
-
+import { PrayerContext } from "../context/PrayerContext"; // Import PrayerContext
 const { AlarmModule } = NativeModules;
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
   const [hour, setHour] = useState("0"); 
   const [minute, setMinute] = useState("5"); 
-  const [prayer, setprayer] = useState({}); 
+  const { prayer } = useContext(PrayerContext); // Access setprayer from context
   useEffect(() => {
     initDB();
     fetchAlarms();
@@ -23,44 +23,42 @@ export default function AlarmList() {
   const calculateAlarmTime = (prayerTime, hoursBefore, minutesBefore) => {
     // التأكد من أن prayerTime بصيغة "HH:MM" وتحويلها إلى كائن
     if (typeof prayerTime === "string") {
-      const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
-      prayerTime = { hour, minute }; 
+        const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
+        prayerTime = { hour, minute };
     }
-  
+
     if (!prayerTime || isNaN(prayerTime.hour) || isNaN(prayerTime.minute)) {
-      Alert.alert("خطأ", "وقت الصلاة غير صحيح.");
-      console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
-      return null;
+        Alert.alert("خطأ", "وقت الصلاة غير صحيح.");
+        console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
+        return null;
     }
-  
-    let { hour, minute } = prayerTime; 
+
+    let { hour, minute } = prayerTime;
     let reduceHours = parseInt(hoursBefore, 10);
     let reduceMinutes = parseInt(minutesBefore, 10);
-  
+
     if (isNaN(reduceHours) || isNaN(reduceMinutes)) {
-      Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة.");
-      console.log("❌ خطأ: القيم المدخلة غير صحيحة", reduceHours, reduceMinutes);
-      return null;
+        Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة.");
+        console.log("❌ خطأ: القيم المدخلة غير صحيحة", reduceHours, reduceMinutes);
+        return null;
     }
-  
+
     console.log("✅ وقت الصلاة:", hour, minute);
-    
+
     let totalMinutes = hour * 60 + minute; // تحويل وقت الصلاة إلى دقائق
     let alarmMinutes = totalMinutes - (reduceHours * 60 + reduceMinutes); // طرح الوقت المسبق
-  
+
+    // إذا كان الوقت الناتج قبل منتصف الليل، أضف 24 ساعة (1440 دقيقة)
     if (alarmMinutes < 0) {
-      Alert.alert("خطأ", "لا يمكن ضبط المنبه قبل منتصف الليل.");
-      console.log("❌ خطأ: وقت التنبيه سلبي:", alarmMinutes);
-      return null;
+        alarmMinutes += 1440; // 24 ساعة × 60 دقيقة
     }
-  
+
     let finalHour = Math.floor(alarmMinutes / 60);
     let finalMinute = alarmMinutes % 60;
-  
-    console.log("✅ وقت التنبيه النهائي:", finalHour, finalMinute);
-  
+
+
     return { finalHour, finalMinute };
-  };
+};
   
   
   
@@ -103,8 +101,8 @@ export default function AlarmList() {
       fetchAlarms();
     });
   
-    setHour("");
-    setMinute("");
+    setHour("0");
+    setMinute("1");
   };
   
   
@@ -157,8 +155,6 @@ export default function AlarmList() {
           </View>
         )}
       />
-
-      <PrayerScreen setprayer={setprayer} />
     </View>
   );
 }
