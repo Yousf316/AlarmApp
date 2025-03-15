@@ -2,15 +2,15 @@ import React, { useContext, useEffect, useState } from "react";
 import { View, Text, FlatList, Button, Alert, TextInput } from "react-native";
 import { initDB, getAlarms, addAlarm, deleteAlarm } from "../../database/db";
 import { NativeModules } from "react-native";
-import PrayerScreen from "./PrayerScreen";
-import { PrayerContext } from "../context/PrayerContext"; // Import PrayerContext
+import { PrayerContext } from "../context/PrayerContext";
+import TimeCalculate from "../librarys/TimeCalculate";
 const { AlarmModule } = NativeModules;
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
   const [hour, setHour] = useState("0"); 
   const [minute, setMinute] = useState("5"); 
-  const { prayer } = useContext(PrayerContext); // Access setprayer from context
+  const { prayer } = useContext(PrayerContext); 
   useEffect(() => {
     initDB();
     fetchAlarms();
@@ -67,7 +67,7 @@ export default function AlarmList() {
   const handleAddAlarm = () => {
     const parsedHour = parseInt(hour, 10);
     const parsedMinute = parseInt(minute, 10);
-  
+    const timeCalculate = new TimeCalculate();
     if (
       isNaN(parsedHour) ||
       isNaN(parsedMinute) ||
@@ -80,10 +80,9 @@ export default function AlarmList() {
       return;
     }
   
-    console.log("🕒 المستخدم أدخل:", parsedHour, parsedMinute);
     console.log("🕋 وقت الصلاة المختار:", prayer?.Fajr);
   
-    const alarmTime = calculateAlarmTime(prayer?.Fajr, parsedHour, parsedMinute);
+    const alarmTime = timeCalculate.calculateAlarmTime(prayer?.Fajr, parsedHour, parsedMinute);
   
     if (!alarmTime) {
       console.log("❌ فشل في حساب وقت المنبه.");

@@ -26,8 +26,8 @@ const BottomTabNavigator = () => {
         tabBarInactiveTintColor: 'gray', // Inactive tab color
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="الوقت" component={SettingsScreen} />
+      <Tab.Screen name="المنبه"  component={HomeScreen} />
     </Tab.Navigator>
   );
 };

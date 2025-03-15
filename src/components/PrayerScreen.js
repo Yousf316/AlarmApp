@@ -1,8 +1,9 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, I18nManager } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, I18nManager, Button } from 'react-native';
 import { getPrayerTimesByCity } from '../../api/prayerTimes';
 import PrayerTimeSelector from './PrayerTimeSelector';
 import { PrayerContext } from "../context/PrayerContext"; // Import PrayerContext
+import TimeCalculate from '../librarys/TimeCalculate';
 
 I18nManager.forceRTL(true);
 
@@ -24,14 +25,18 @@ const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setL
      
 
       const timings = await getPrayerTimesByCity(city, country);
-      //console.log("Prayer Times:", timings);
+      console.log("Prayer Times:", timings);
 
       if (timings) {
         setPrayerTimes(timings);
         setprayer(timings);
+      }else
+      {
+        setPrayerTimes(null)
       }
     } catch (error) {
       console.error("Error fetching prayer times:", error);
+      
     } finally {
       setLoading(false);
     }
@@ -42,7 +47,7 @@ const PrayerScreen = () => {
   const [loading, setLoading] = useState(true);
   const [citynamear, setcitynamear] = useState("جدة");
   const { setprayer } = useContext(PrayerContext); // Access prayer from context
-
+  const timeCalculate = new TimeCalculate();
 
   const handleCitySelect = async (city, country,citynamear) => {
     console.log("Selected City:", city, country);
@@ -61,44 +66,48 @@ const PrayerScreen = () => {
   }
 
   if (!prayerTimes) {
-    return <Text>حدث خطأ أثناء تحميل أوقات الصلاة.</Text>;
+    return( <View style={styles.container}> <Text style={styles.cityName}>حدث خطأ أثناء تحميل أوقات الصلاة. تاكد من الاتصال بالشبكة</Text>
+          <Button title="إضافة منبه" onPress={handleAddAlarm} />
+     </View>);
   }
 
   return (
-    <View>
+    <View  >
               <PrayerTimeSelector onSelect={handleCitySelect} />
+             <View style={styles.container}> 
               <View style={styles.prayerTimesContainer}>
           <Text style={styles.cityName}>أوقات الصلاة لمدينة {citynamear}:</Text>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>الفجر:</Text>
             <Text style={styles.prayerTime}>
-              {convertTo12HourFormat(prayerTimes?.Fajr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.Fajr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>الظهر:</Text>
             <Text style={styles.prayerTime}>
-              {convertTo12HourFormat(prayerTimes?.Dhuhr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.Dhuhr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>العصر:</Text>
             <Text style={styles.prayerTime}>
-              {convertTo12HourFormat(prayerTimes?.Asr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.Asr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>المغرب:</Text>
             <Text style={styles.prayerTime}>
-              {convertTo12HourFormat(prayerTimes?.Maghrib)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.Maghrib)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>العشاء:</Text>
             <Text style={styles.prayerTime}>
-              {convertTo12HourFormat(prayerTimes?.Isha)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.Isha)}
             </Text>
           </View>
+        </View>
         </View>
     </View>
   );
@@ -107,11 +116,14 @@ const PrayerScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    
+    alignItems: "center",
     padding: 20,
     backgroundColor: "#f5f5f5",
   },
   prayerTimesContainer: {
+    
+    width:"95%",
     marginTop: 20,
     backgroundColor: "#fff",
     borderRadius: 10,
