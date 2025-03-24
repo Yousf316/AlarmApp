@@ -82,10 +82,10 @@ class AlarmService : Service() {
         )
 
         return Notification.Builder(this, channelId)
-            .setContentTitle("Alarm is ringing")
-            .setContentText("Tap to stop the alarm")
+            .setContentTitle("المنبه يرن")
+            .setContentText("اضغط لايقاف المنبه")
             .setSmallIcon(R.drawable.ic_alarm)
-            .addAction(android.R.drawable.ic_delete, "Stop", stopPendingIntent)
+            .addAction(android.R.drawable.ic_delete, "التوقف", stopPendingIntent)
             .setOngoing(true) // Prevent the notification from being dismissed
             .build()
     }

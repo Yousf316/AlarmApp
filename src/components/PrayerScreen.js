@@ -1,23 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, I18nManager, Button } from 'react-native';
-import { getPrayerTimesByCity } from '../../api/prayerTimes';
+import { getPrayerTimesByCity, getPrayerTimesForNextDays } from '../../api/prayerTimes';
 import PrayerTimeSelector from './PrayerTimeSelector';
 import { PrayerContext } from "../context/PrayerContext"; // Import PrayerContext
 import TimeCalculate from '../librarys/TimeCalculate';
 
 I18nManager.forceRTL(true);
 
-// تحويل الوقت إلى صيغة 12 ساعة
-const convertTo12HourFormat = (time) => {
-  if (!time) return 'Invalid Time';
 
-  let [hours, minutes] = time.split(':').map(Number);
-  let period = hours >= 12 ? 'PM' : 'AM';
-
-  hours = hours % 12 || 12;
-
-  return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
-};
 
 
 const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setLoading,setprayer) => {
@@ -25,7 +15,10 @@ const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setL
      
 
       const timings = await getPrayerTimesByCity(city, country);
+      const timingsinfo = await getPrayerTimesForNextDays
+      (city, country,15);
       console.log("Prayer Times:", timings);
+      console.log("Prayer Times:", timingsinfo);
 
       if (timings) {
         setPrayerTimes(timings);
@@ -67,7 +60,7 @@ const PrayerScreen = () => {
 
   if (!prayerTimes) {
     return( <View style={styles.container}> <Text style={styles.cityName}>حدث خطأ أثناء تحميل أوقات الصلاة. تاكد من الاتصال بالشبكة</Text>
-          <Button title="إضافة منبه" onPress={handleAddAlarm} />
+          <Button title="اعادة المحاولة" onPress={handleCitySelect} />
      </View>);
   }
 

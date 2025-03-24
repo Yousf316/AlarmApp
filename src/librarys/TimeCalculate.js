@@ -1,3 +1,5 @@
+const { Alert } = require("react-native");
+
 class TimeCalculate {
     constructor() {
         // Initialize any properties if needed
@@ -26,7 +28,7 @@ class TimeCalculate {
 
      convertTo12HourFormat = (time) => {
         if (!time) return 'Invalid Time';
-      
+        time = time.split(' ')[0]; 
         let [hours, minutes] = time.split(':').map(Number);
         let period = hours >= 12 ? 'PM' : 'AM';
       
@@ -37,45 +39,46 @@ class TimeCalculate {
 
 
 
-        calculateAlarmTime = (prayerTime, hoursBefore, minutesBefore) => {
-          // التأكد من أن prayerTime بصيغة "HH:MM" وتحويلها إلى كائن
-          if (typeof prayerTime === "string") {
-              const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
-              prayerTime = { hour, minute };
-          }
-      
-          if (!prayerTime || isNaN(prayerTime.hour) || isNaN(prayerTime.minute)) {
-              Alert.alert("خطأ", "وقت الصلاة غير صحيح.");
-              console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
-              return null;
-          }
-      
-          let { hour, minute } = prayerTime;
-          let reduceHours = parseInt(hoursBefore, 10);
-          let reduceMinutes = parseInt(minutesBefore, 10);
-      
-          if (isNaN(reduceHours) || isNaN(reduceMinutes)) {
-              Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة.");
-              console.log("❌ خطأ: القيم المدخلة غير صحيحة", reduceHours, reduceMinutes);
-              return null;
-          }
-      
-          console.log("✅ وقت الصلاة:", hour, minute);
-      
-          let totalMinutes = hour * 60 + minute; // تحويل وقت الصلاة إلى دقائق
-          let alarmMinutes = totalMinutes - (reduceHours * 60 + reduceMinutes); // طرح الوقت المسبق
-      
-          // إذا كان الوقت الناتج قبل منتصف الليل، أضف 24 ساعة (1440 دقيقة)
-          if (alarmMinutes < 0) {
-              alarmMinutes += 1440; // 24 ساعة × 60 دقيقة
-          }
-      
-          let finalHour = Math.floor(alarmMinutes / 60);
-          let finalMinute = alarmMinutes % 60;
-      
-      
-          return { finalHour, finalMinute };
-      };
+       calculateAlarmTime = (prayerTime, hoursBefore, minutesBefore) => {
+        if (!prayerTime || typeof prayerTime !== "string" || !prayerTime.includes(":")) {
+            Alert.alert("خطأ", "وقت الصلاة غير صحيح أو مفقود.");
+            console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
+            return null;
+        }
+    
+        prayerTime = prayerTime.split(' ')[0]; 
+
+        // تحويل النص "HH:MM" إلى كائن { hour, minute }
+        const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
+        
+        if (isNaN(hour) || isNaN(minute)) {
+            Alert.alert("خطأ", "تنسيق وقت الصلاة غير صالح.");
+            console.log("❌ خطأ: القيم المستخرجة غير صالحة:", { hour, minute });
+            return null;
+        }
+    
+        if (isNaN(hoursBefore) || isNaN(minutesBefore)) {
+            Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة للساعات والدقائق.");
+            console.log("❌ خطأ: القيم المدخلة غير صحيحة", hoursBefore, minutesBefore);
+            return null;
+        }
+    
+        console.log("✅ وقت الصلاة:", hour, minute);
+    
+        let totalMinutes = hour * 60 + minute; // تحويل وقت الصلاة إلى دقائق
+        let alarmMinutes = totalMinutes - (hoursBefore * 60 + minutesBefore); // طرح الوقت المسبق
+    
+        // التأكد من أن الوقت الناتج ليس سالبًا
+        if (alarmMinutes < 0) {//
+            alarmMinutes += 1440; // إضافة 24 ساعة (1440 دقيقة) لضبط الوقت
+        }
+    
+        let finalHour = Math.floor(alarmMinutes / 60);
+        let finalMinute = alarmMinutes % 60;
+    
+        return { finalHour, finalMinute };
+    };
+    
 }
 
 module.exports = TimeCalculate;

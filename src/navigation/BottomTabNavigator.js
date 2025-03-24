@@ -1,4 +1,3 @@
-// src/navigation/BottomTabNavigator.js
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../screens/HomeScreen';
@@ -11,13 +10,14 @@ const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        headerShown: false, // إخفاء الهيدر
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          }else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
+          if (route.name === 'المنبه') {
+            iconName = focused ? 'alarm' : 'alarm-outline';
+          } else if (route.name === 'الوقت') {
+            iconName = focused ? 'time' : 'time-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -27,7 +27,7 @@ const BottomTabNavigator = () => {
       })}
     >
       <Tab.Screen name="الوقت" component={SettingsScreen} />
-      <Tab.Screen name="المنبه"  component={HomeScreen} />
+      <Tab.Screen name="المنبه" component={HomeScreen} />
     </Tab.Navigator>
   );
 };

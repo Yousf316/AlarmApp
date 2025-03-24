@@ -14,7 +14,7 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
-    fun setAlarm(alarmid: Int,hour: Int, minute: Int) {
+    fun setAlarm(alarmid: Int,hour: Int, minute: Int,lable:String) {
         val scheduler = AlarmScheduler(reactApplicationContext)
 
         // حساب الوقت بالـ Milliseconds
@@ -32,7 +32,7 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
         val timeInMillis = calendar.timeInMillis
         val requestCode = alarmid
-        scheduler.setAlarm(timeInMillis, requestCode)
+        scheduler.setAlarm(timeInMillis, requestCode,lable)
     }
 
     @ReactMethod
