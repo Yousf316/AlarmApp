@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { Checkbox } from "react-native-paper";
 
 const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
   const [hour, setHour] = useState("0");
   const [minute, setMinute] = useState("5");
-  const [repeatDaily, setRepeatDaily] = useState(false);
+  const [allDays, setallDays] = useState(false);
   const [selectedDays, setSelectedDays] = useState({
     "الفجر": false,
     "الظهر": false,
@@ -14,6 +14,9 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
     "العشاء": false,
   });
 
+  useEffect(() => {
+    Alldays(allDays);
+  }, [allDays]);
   const handleAdd = () => {
     const parsedHour = parseInt(hour, 10);
     const parsedMinute = parseInt(minute, 10);
@@ -36,6 +39,15 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
     );
 
     onClose();
+  };
+  const Alldays = (value) => {
+    setSelectedDays((prev) => {
+      const newState = {};
+      for (const day in prev) {
+        newState[day] = value; 
+      }
+      return newState;
+    });
   };
 
   const toggleDay = (day) => {
@@ -75,8 +87,8 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
         {/* خيار التكرار اليومي */}
         <View style={styles.checkboxContainer}>
           <Checkbox
-            status={repeatDaily ? "checked" : "unchecked"}
-            onPress={() => setRepeatDaily(!repeatDaily)}
+            status={allDays ? "checked" : "unchecked"}
+            onPress={() => setallDays(!allDays)}
             color="#007bff"
           />
           <Text style={styles.checkboxLabel}>تكرار يومي</Text>

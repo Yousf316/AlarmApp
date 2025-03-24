@@ -1,14 +1,12 @@
 import React, { useContext, useEffect, useState } from "react";
 import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
-import { deleteDB, initDB, rebuildDB, showTables } from "../../database/db";
-import { NativeModules } from "react-native";
+import {  initDB,   } from "../../database/db";
 import { PrayerContext } from "../context/PrayerContext";
 import AddAlarmModal from "./AddAlarmModal";
 import AlarmItem from "./AlarmItem";
 import { addUserTime, getUserTimes } from "../../database/userTimeService";
 import clsAlarm from "../librarys/clsAlaram";
 
-const { AlarmModule } = NativeModules;
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
