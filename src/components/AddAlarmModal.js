@@ -1,4 +1,4 @@
-import React, { use, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { Checkbox } from "react-native-paper";
 
@@ -91,11 +91,11 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
             onPress={() => setallDays(!allDays)}
             color="#007bff"
           />
-          <Text style={styles.checkboxLabel}>تكرار يومي</Text>
+          <Text style={styles.checkboxLabel}>جميع الصلوات</Text>
         </View>
 
         {/* أيام الأسبوع */}
-        <Text style={styles.daysTitle}>تفعيل المنبه في الأيام التالية:</Text>
+        <Text style={styles.daysTitle}>اختيار الصلاة</Text>
         {Object.keys(selectedDays).map((day) => (
           <View key={day} style={styles.checkboxContainer}>
             <Checkbox

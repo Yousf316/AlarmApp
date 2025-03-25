@@ -39,7 +39,7 @@ class TimeCalculate {
 
 
 
-       calculateAlarmTime = (prayerTime, hoursBefore, minutesBefore) => {
+       calculateAlarmTime = (date, prayerTime, hoursBefore, minutesBefore) => {
         if (!prayerTime || typeof prayerTime !== "string" || !prayerTime.includes(":")) {
             Alert.alert("خطأ", "وقت الصلاة غير صحيح أو مفقود.");
             console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
@@ -47,10 +47,10 @@ class TimeCalculate {
         }
     
         prayerTime = prayerTime.split(' ')[0]; 
-
-        // تحويل النص "HH:MM" إلى كائن { hour, minute }
+    
+        // Convert "HH:MM" string to hour and minute
         const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
-        
+    
         if (isNaN(hour) || isNaN(minute)) {
             Alert.alert("خطأ", "تنسيق وقت الصلاة غير صالح.");
             console.log("❌ خطأ: القيم المستخرجة غير صالحة:", { hour, minute });
@@ -65,19 +65,23 @@ class TimeCalculate {
     
         console.log("✅ وقت الصلاة:", hour, minute);
     
-        let totalMinutes = hour * 60 + minute; // تحويل وقت الصلاة إلى دقائق
-        let alarmMinutes = totalMinutes - (hoursBefore * 60 + minutesBefore); // طرح الوقت المسبق
+        let totalMinutes = hour * 60 + minute; // Convert prayer time to total minutes
+        let alarmMinutes = totalMinutes - (hoursBefore * 60 + minutesBefore); // Subtract the time before
     
-        // التأكد من أن الوقت الناتج ليس سالبًا
-        if (alarmMinutes < 0) {//
-            alarmMinutes += 1440; // إضافة 24 ساعة (1440 دقيقة) لضبط الوقت
+        // If the alarm time is negative, subtract one day from the date
+        if (alarmMinutes < 0) {
+            alarmMinutes += 1440; // Add 24 hours (1440 minutes) to adjust to the next day
+            const prevDate = new Date(date); // Convert the date string to a Date object
+            prevDate.setDate(prevDate.getDate() - 1); // Subtract one day from the date
+            date = prevDate.toISOString().split("T")[0]; // Update the date to the previous day
         }
     
         let finalHour = Math.floor(alarmMinutes / 60);
         let finalMinute = alarmMinutes % 60;
     
-        return { finalHour, finalMinute };
+        return { finalDate: date, finalHour, finalMinute };
     };
+    
     
 }
 

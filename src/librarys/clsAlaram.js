@@ -5,25 +5,23 @@ import { NativeModules } from "react-native";
 
 class clsAlarm {
     // Static method example
-    static async setAlarm(usertimeid, prayertime, hour, minute, label) {
+    static async setAlarm(usertimeid,date ,prayertime, hour, minute, label) {
         const { AlarmModule } = NativeModules;
         const timeCalculate = new TimeCalculate();
       
         try {
           // Calculate the alarm time
-          const alarmTime = timeCalculate.calculateAlarmTime(prayertime, hour, minute);
+          const alarmTime = timeCalculate.calculateAlarmTime(date,prayertime, hour, minute);
       console.log('Alarm Time:', alarmTime);
           if (!alarmTime) {
             console.log("❌ فشل في حساب وقت المنبه.");
             throw new Error("Failed to calculate alarm time.");
           }
       
-          // Get today's date in YYYY-MM-DD format
-          const today = new Date();
-          const alarmDate = today.toISOString().split("T")[0];
+          
       
           // Save the alarm and get its ID
-          const alarmId = await addAlarm(alarmDate, alarmTime.finalHour, alarmTime.finalMinute, usertimeid)
+          const alarmId = await addAlarm(alarmTime.finalDate, alarmTime.finalHour, alarmTime.finalMinute, usertimeid)
             .then((id) => id)
             .catch((error) => {
               throw error;
@@ -32,7 +30,7 @@ class clsAlarm {
           console.log("✅ حفظ المنبه بنجاح:", alarmId);
       
           // Set the alarm using the native module
-           AlarmModule.setAlarm(alarmId, alarmTime.finalHour, alarmTime.finalMinute, label);
+           AlarmModule.setAlarm(alarmId, alarmTime.finalDate,alarmTime.finalHour, alarmTime.finalMinute, label);
       
           console.log(`⏰ Alarm set for ${usertimeid} at ${alarmTime.finalHour}:${alarmTime.finalMinute} (${label})`);
         } catch (error) {

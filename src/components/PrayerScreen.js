@@ -21,8 +21,8 @@ const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setL
       console.log("Prayer Times:", timingsinfo);
 
       if (timings) {
-        setPrayerTimes(timings);
-        setprayer(timings);
+        setPrayerTimes(timingsinfo);
+        setprayer(timingsinfo);
       }else
       {
         setPrayerTimes(null)
@@ -73,31 +73,31 @@ const PrayerScreen = () => {
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>الفجر:</Text>
             <Text style={styles.prayerTime}>
-              {timeCalculate.convertTo12HourFormat(prayerTimes?.Fajr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.[0]?.timings?.Fajr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>الظهر:</Text>
             <Text style={styles.prayerTime}>
-              {timeCalculate.convertTo12HourFormat(prayerTimes?.Dhuhr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.[0]?.timings?.Dhuhr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>العصر:</Text>
             <Text style={styles.prayerTime}>
-              {timeCalculate.convertTo12HourFormat(prayerTimes?.Asr)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.[0]?.timings?.Asr)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>المغرب:</Text>
             <Text style={styles.prayerTime}>
-              {timeCalculate.convertTo12HourFormat(prayerTimes?.Maghrib)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.[0]?.timings?.Maghrib)}
             </Text>
           </View>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>العشاء:</Text>
             <Text style={styles.prayerTime}>
-              {timeCalculate.convertTo12HourFormat(prayerTimes?.Isha)}
+              {timeCalculate.convertTo12HourFormat(prayerTimes?.[0]?.timings?.Isha)}
             </Text>
           </View>
         </View>

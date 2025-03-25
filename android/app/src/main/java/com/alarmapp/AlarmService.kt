@@ -34,7 +34,7 @@ class AlarmService : Service() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
-            isLooping = true // Loop the sound until stopped
+            isLooping = false // Loop the sound until stopped
             prepare()
             start()
         }

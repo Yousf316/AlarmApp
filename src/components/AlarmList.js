@@ -37,31 +37,46 @@ export default function AlarmList() {
     }
   };
 
-  const handleAddAlarm = async (hour, minute) => {
+  const handleAddAlarm = async (hour, minute, selectedPrayers) => {
     try {
-      
-      // Add user time to the database
-      const id = await addUserTime(hour, minute);
-      console.log("✅ User time saved successfully. ID:", id);
-      await fetchAlarms();
-      // Check if Fajr prayer time is defined
-      if (!prayer?.Fajr) {
-        console.warn("⚠️ Prayer time for Fajr is not defined.");
-        Alert.alert("Error", "Fajr prayer time is not available.");
+      if (!prayer) {
+        console.warn("⚠️ Prayer times are not available.");
+        Alert.alert("Error", "Prayer times are missing.");
         return;
       }
   
-      // Set the alarm
-      await clsAlarm.setAlarm(id, prayer.Fajr, hour, minute, "Fajr");
-      console.log(`⏰ Alarm set for Fajr at ${hour}:${minute} (Prayer Time: ${prayer.Fajr})`);
+      // Add user time to the database (uncomment and use this if needed)
+      const id = await addUserTime(hour, minute);
+      console.log("✅ User time saved successfully. ID:", id);
   
-      // Refresh the list of alarms
-     
+      // Loop through each prayer data (date and timings)
+      prayer.forEach(async (prayerData) => {
+        const { date, timings } = prayerData;
+  
+        // Loop through each prayer time (Fajr, Dhuhr, Asr, etc.)
+        Object.entries(timings).forEach(async ([prayerName, time]) => {
+          console.log(`Prayer: ${prayerName}, Time: ${time} on ${date}`);
+  
+          // If the prayer is selected, set the alarm
+          if (selectedPrayers[prayerName]) {
+            // Set the alarm with the correct time
+            await clsAlarm.setAlarm(id, date,time, hour, minute, prayerName);
+            console.log(`⏰ Alarm set for ${prayerName} at ${hour}:${minute} (Prayer Time: ${time})`);
+          } else {
+            console.warn(`⚠️ Alarm for ${prayerName} not selected.`);
+          }
+        });
+      });
+  
+      await fetchAlarms();
+  
     } catch (error) {
       console.error("❌ Error in handleAddAlarm:", error);
       Alert.alert("Error", "Failed to add alarm. Please check your input and try again.");
     }
   };
+  
+  
   const handleDeleteAlarm = async (id) => {
     Alert.alert("حذف المنبه", "هل أنت متأكد؟", [
       { text: "إلغاء", style: "cancel" },

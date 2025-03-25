@@ -13,27 +13,41 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         return "AlarmModule"
     }
 
-    @ReactMethod
-    fun setAlarm(alarmid: Int,hour: Int, minute: Int,lable:String) {
-        val scheduler = AlarmScheduler(reactApplicationContext)
+   @ReactMethod
+fun setAlarm(alarmid: Int, date: String, hour: Int, minute: Int, label: String) {
+    val scheduler = AlarmScheduler(reactApplicationContext)
 
-        // حساب الوقت بالـ Milliseconds
-       val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-
-            // إذا كان الوقت المحدد في الماضي، أضف يومًا
-            if (timeInMillis <= System.currentTimeMillis()) {
-                add(Calendar.DAY_OF_YEAR, 1) // التعديل هنا
-            }
+    // تحويل التاريخ النصي إلى كائن Calendar
+    val calendar = Calendar.getInstance().apply {
+        try {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            time = dateFormat.parse(date) ?: Date() // ضبط التاريخ
+        } catch (e: ParseException) {
+            Log.e("AlarmManager", "❌ خطأ في تحليل التاريخ: $date", e)
+            return // الخروج في حالة الخطأ
         }
 
-        val timeInMillis = calendar.timeInMillis
-        val requestCode = alarmid
-        scheduler.setAlarm(timeInMillis, requestCode,lable)
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+
+        // التأكد من أن الوقت ليس في الماضي
+        if (timeInMillis <= System.currentTimeMillis()) {
+            Log.w("AlarmManager", "⚠️ الوقت المحدد في الماضي، لن يتم ضبط المنبه.")
+            return
+        }
     }
+
+    val timeInMillis = calendar.timeInMillis
+    val requestCode = alarmid
+
+    // 🔹 طباعة بيانات المنبه للتحقق
+    Log.d("AlarmManager", "⏰ Setting alarm at: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE)}")
+
+    scheduler.setAlarm(timeInMillis, requestCode, label)
+}
+
 
     @ReactMethod
 fun cancelAlarm(id: Int, promise: Promise) {
