@@ -6,6 +6,7 @@ import AddAlarmModal from "./AddAlarmModal";
 import AlarmItem from "./AlarmItem";
 import { addUserTime, getUserTimes } from "../../database/userTimeService";
 import clsAlarm from "../librarys/clsAlaram";
+import clsUtility from "../librarys/clsUtilty";
 
 
 export default function AlarmList() {
@@ -39,40 +40,91 @@ export default function AlarmList() {
 
   const handleAddAlarm = async (hour, minute, selectedPrayers) => {
     try {
-      if (!prayer) {
-        console.warn("⚠️ Prayer times are not available.");
-        Alert.alert("Error", "Prayer times are missing.");
+      // 1. Validate prayer data
+      if (!prayer || !Array.isArray(prayer)) {
+        console.warn("Invalid prayer data");
+        Alert.alert("Error", "Prayer times data is not available");
         return;
       }
+      console.log("selectedPrayers prayers:", selectedPrayers);
+
+      // 2. Validate and protect selectedPrayers
+      if (!selectedPrayers || typeof selectedPrayers !== 'object') {
+        console.warn("Invalid selectedPrayers - using empty fallback");
+        selectedPrayers = {};
+      }
   
-      // Add user time to the database (uncomment and use this if needed)
+      // 3. Create safe copy WITHOUT overriding user selections
+      const prayersToProcess = {
+        Fajr: !!selectedPrayers.Fajr,    // Convert to boolean
+        Dhuhr: !!selectedPrayers.Dhuhr,
+        Asr: !!selectedPrayers.Asr,
+        Maghrib: !!selectedPrayers.Maghrib,
+        Isha: !!selectedPrayers.Isha
+      };
+  
+      console.log("Processing prayers:", prayersToProcess);
+  
+      // 4. Save user time
       const id = await addUserTime(hour, minute);
       console.log("✅ User time saved successfully. ID:", id);
   
-      // Loop through each prayer data (date and timings)
-      prayer.forEach(async (prayerData) => {
-        const { date, timings } = prayerData;
-  
-        // Loop through each prayer time (Fajr, Dhuhr, Asr, etc.)
-        Object.entries(timings).forEach(async ([prayerName, time]) => {
-          console.log(`Prayer: ${prayerName}, Time: ${time} on ${date}`);
-  
-          // If the prayer is selected, set the alarm
-          if (selectedPrayers[prayerName]) {
-            // Set the alarm with the correct time
-            await clsAlarm.setAlarm(id, date,time, hour, minute, prayerName);
-            console.log(`⏰ Alarm set for ${prayerName} at ${hour}:${minute} (Prayer Time: ${time})`);
-          } else {
-            console.warn(`⚠️ Alarm for ${prayerName} not selected.`);
+      // 5. Process each prayer day
+      for (const day of prayer) {
+        try {
+          if (!day?.timings || typeof day.timings !== 'object') {
+            console.warn(`Skipping invalid day: ${day?.date}`);
+            continue;
           }
-        });
-      });
   
+          const { date, timings } = day;
+  
+          // 6. Process each prayer type
+          for (const prayerName in prayersToProcess) {
+            try {
+              // Only process if selected
+              if (!prayersToProcess[prayerName]) {
+                console.log(`Skipping ${prayerName} - not selected`);
+                continue;
+              }
+  
+              const timeString = timings[prayerName];
+              if (!timeString) {
+                console.warn(`No time found for ${prayerName} on ${date}`);
+                continue;
+              }
+  
+              // Parse time
+              const [time] = timeString.split(' ');
+  
+              const prayerAr = clsUtility.GetNamePrayerAr(prayerName)
+  
+              await clsAlarm.setAlarm(
+               id,
+                date,
+                time,
+                hour,
+                minute,
+                prayerAr
+              );
+  
+              console.log(`✅ Set ${prayerName} alarm successfully`);
+            } catch (prayerError) {
+              console.warn(`Failed ${prayerName} alarm:`, prayerError.message);
+            }
+          }
+        } catch (dayError) {
+          console.warn(`Failed day ${day?.date}:`, dayError.message);
+        }
+      }
+  
+      // 7. Refresh and notify
       await fetchAlarms();
+      Alert.alert("Success", "Alarms set successfully");
   
-    } catch (error) {
-      console.error("❌ Error in handleAddAlarm:", error);
-      Alert.alert("Error", "Failed to add alarm. Please check your input and try again.");
+    } catch (mainError) {
+      console.warn("Main error:", mainError.message);
+      Alert.alert("Error", "Failed to complete alarm setup");
     }
   };
   

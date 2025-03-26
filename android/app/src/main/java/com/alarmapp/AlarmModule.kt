@@ -6,44 +6,49 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
-
+import java.text.SimpleDateFormat
+import java.text.ParseException
+import java.util.Date
+import java.util.Locale
+import android.util.Log
 class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
     override fun getName(): String {
         return "AlarmModule"
     }
-
-   @ReactMethod
+@ReactMethod
 fun setAlarm(alarmid: Int, date: String, hour: Int, minute: Int, label: String) {
     val scheduler = AlarmScheduler(reactApplicationContext)
+    val TAG = "AlarmManager"
 
     // تحويل التاريخ النصي إلى كائن Calendar
     val calendar = Calendar.getInstance().apply {
         try {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            time = dateFormat.parse(date) ?: Date() // ضبط التاريخ
+            val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+            dateFormat.timeZone = TimeZone.getDefault()
+            time = dateFormat.parse(date) ?: throw ParseException("Invalid date format", 0) // ضبط التاريخ
         } catch (e: ParseException) {
-            Log.e("AlarmManager", "❌ خطأ في تحليل التاريخ: $date", e)
-            return // الخروج في حالة الخطأ
+            Log.e(TAG, "❌ خطأ في تحليل التاريخ: $date", e)
+            return
         }
 
         set(Calendar.HOUR_OF_DAY, hour)
         set(Calendar.MINUTE, minute)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
-
-        // التأكد من أن الوقت ليس في الماضي
-        if (timeInMillis <= System.currentTimeMillis()) {
-            Log.w("AlarmManager", "⚠️ الوقت المحدد في الماضي، لن يتم ضبط المنبه.")
-            return
-        }
     }
 
     val timeInMillis = calendar.timeInMillis
+
+    if (timeInMillis <= System.currentTimeMillis()) {
+        Log.w(TAG, "⚠️ الوقت المحدد في الماضي، لن يتم ضبط المنبه.")
+        return
+    }
+
     val requestCode = alarmid
 
     // 🔹 طباعة بيانات المنبه للتحقق
-    Log.d("AlarmManager", "⏰ Setting alarm at: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE)}")
+    Log.d(TAG, "⏰ ضبط المنبه في: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE)}")
 
     scheduler.setAlarm(timeInMillis, requestCode, label)
 }

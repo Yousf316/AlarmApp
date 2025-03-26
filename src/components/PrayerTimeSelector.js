@@ -24,14 +24,14 @@ const citiesByCountry = {
   ],
 };
 
-const PrayerTimeSelector = ({ onSelect }) => {
-  const [selectedCountry, setSelectedCountry] = useState("SA");
-  const [selectedCity, setSelectedCity] = useState("Jeddah");
-  const [selectedCityar, setSelectedCityar] = useState("جدة");
+const PrayerTimeSelector = ({ onSelect ,selectedCountry, setSelectedCountry,selectedCity, setSelectedCity
+  ,selectedCityar, setSelectedCityar
+}) => {
+  
 
   useEffect(() => {
     if (selectedCountry && selectedCity) {
-      onSelect(selectedCity, selectedCountry,selectedCityar);
+      onSelect(selectedCity, selectedCountry);
     }
   }, [selectedCity, selectedCountry]);
 

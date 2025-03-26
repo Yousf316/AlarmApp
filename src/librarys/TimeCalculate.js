@@ -82,7 +82,9 @@ class TimeCalculate {
         return { finalDate: date, finalHour, finalMinute };
     };
     
-    
+    static isValidTime(hours, minutes) {
+        return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
+    }
 }
 
 module.exports = TimeCalculate;

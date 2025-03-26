@@ -14,13 +14,11 @@ const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setL
     try {
      
 
-      const timings = await getPrayerTimesByCity(city, country);
       const timingsinfo = await getPrayerTimesForNextDays
       (city, country,15);
-      console.log("Prayer Times:", timings);
       console.log("Prayer Times:", timingsinfo);
 
-      if (timings) {
+      if (timingsinfo) {
         setPrayerTimes(timingsinfo);
         setprayer(timingsinfo);
       }else
@@ -38,15 +36,19 @@ const fetchPrayerTimes = async (city ="Jeddah" ,country="SA",setPrayerTimes,setL
 const PrayerScreen = () => {
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [citynamear, setcitynamear] = useState("جدة");
+  const [selectedCountry, setSelectedCountry] = useState("SA");
+  const [selectedCity, setSelectedCity] = useState("Jeddah");
+    const [selectedCityar, setSelectedCityar] = useState("جدة");
+  
   const { setprayer } = useContext(PrayerContext); // Access prayer from context
   const timeCalculate = new TimeCalculate();
 
-  const handleCitySelect = async (city, country,citynamear) => {
+  const handleCitySelect = async (city, country) => {
     console.log("Selected City:", city, country);
-    setcitynamear(citynamear);
     await fetchPrayerTimes(city, country,setPrayerTimes,setLoading,setprayer);
   };
+
+  
   
   useEffect(() => {
    
@@ -60,16 +62,27 @@ const PrayerScreen = () => {
 
   if (!prayerTimes) {
     return( <View style={styles.container}> <Text style={styles.cityName}>حدث خطأ أثناء تحميل أوقات الصلاة. تاكد من الاتصال بالشبكة</Text>
-          <Button title="اعادة المحاولة" onPress={handleCitySelect} />
+          <Button title="اعادة المحاولة" onPress={()=>{
+            setLoading(true);
+handleCitySelect(selectedCity,selectedCountry);
+          }
+          
+          } />
      </View>);
   }
 
   return (
     <View  >
-              <PrayerTimeSelector onSelect={handleCitySelect} />
+              <PrayerTimeSelector onSelect={handleCitySelect} 
+              selectedCountry={selectedCountry} 
+              setSelectedCountry={setSelectedCountry}
+               selectedCity={selectedCity}
+               setSelectedCity={setSelectedCity}
+               selectedCityar={selectedCityar}
+               setSelectedCityar={setSelectedCityar}/>
              <View style={styles.container}> 
               <View style={styles.prayerTimesContainer}>
-          <Text style={styles.cityName}>أوقات الصلاة لمدينة {citynamear}:</Text>
+          <Text style={styles.cityName}>أوقات الصلاة لمدينة {selectedCityar}:</Text>
           <View style={styles.prayerTimeRow}>
             <Text style={styles.prayerName}>الفجر:</Text>
             <Text style={styles.prayerTime}>

@@ -1,22 +1,25 @@
 import React, { use, useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { Checkbox } from "react-native-paper";
+import clsUtility from "../librarys/clsUtilty";
 
 const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
   const [hour, setHour] = useState("0");
   const [minute, setMinute] = useState("5");
   const [allDays, setallDays] = useState(false);
-  const [selectedDays, setSelectedDays] = useState({
-    "الفجر": false,
-    "الظهر": false,
-    "العصر": false,
-    "المغرب": false,
-    "العشاء": false,
+  const [selectedPrayers, setSelectedPrayers] = useState({
+    "Fajr": false,
+    "Dhuhr": false,
+    "Asr": false,
+    "Maghrib": false,
+    "Isha": false,
   });
 
   useEffect(() => {
     Alldays(allDays);
   }, [allDays]);
+
+  
   const handleAdd = () => {
     const parsedHour = parseInt(hour, 10);
     const parsedMinute = parseInt(minute, 10);
@@ -36,12 +39,13 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
     onAddAlarm(
        parsedHour,
        parsedMinute,
+       selectedPrayers,
     );
 
     onClose();
   };
   const Alldays = (value) => {
-    setSelectedDays((prev) => {
+    setSelectedPrayers((prev) => {
       const newState = {};
       for (const day in prev) {
         newState[day] = value; 
@@ -51,7 +55,7 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
   };
 
   const toggleDay = (day) => {
-    setSelectedDays((prev) => ({
+    setSelectedPrayers((prev) => ({
       ...prev,
       [day]: !prev[day],
     }));
@@ -96,14 +100,14 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
 
         {/* أيام الأسبوع */}
         <Text style={styles.daysTitle}>اختيار الصلاة</Text>
-        {Object.keys(selectedDays).map((day) => (
+        {Object.keys(selectedPrayers).map((day) => (
           <View key={day} style={styles.checkboxContainer}>
             <Checkbox
-              status={selectedDays[day] ? "checked" : "unchecked"}
+              status={selectedPrayers[day] ? "checked" : "unchecked"}
               onPress={() => toggleDay(day)}
               color="#007bff"
             />
-            <Text style={styles.checkboxLabel}>{day}</Text>
+            <Text style={styles.checkboxLabel}>{clsUtility.GetNamePrayerAr(day)}</Text>
           </View>
         ))}
 
