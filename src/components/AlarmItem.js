@@ -8,7 +8,7 @@ const AlarmItem = ({ item, onDelete }) => {
   return (
     <View style={styles.alarmItem}>
       <Text style={styles.alarmText}>
-        المنبه في  {item.hour}:{item.minute}
+        قبل الصلاة ب {item.hour}:{item.minute}
       </Text>
       <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item.id)}>
         <Text style={styles.deleteButtonText}>حذف</Text>

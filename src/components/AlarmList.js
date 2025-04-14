@@ -111,6 +111,7 @@ export default function AlarmList() {
               console.log(`✅ Set ${prayerName} alarm successfully`);
             } catch (prayerError) {
               console.warn(`Failed ${prayerName} alarm:`, prayerError.message);
+             
             }
           }
         } catch (dayError) {
@@ -120,11 +121,11 @@ export default function AlarmList() {
   
       // 7. Refresh and notify
       await fetchAlarms();
-      Alert.alert("Success", "Alarms set successfully");
+      Alert.alert("تمت العملية بنجاح", "تم ضبط المنبه");
   
     } catch (mainError) {
       console.warn("Main error:", mainError.message);
-      Alert.alert("Error", "Failed to complete alarm setup");
+      Alert.alert("خطاء", "فشل في ضبط المنبه");
     }
   };
   
