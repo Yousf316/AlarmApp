@@ -63,7 +63,7 @@ class AlarmService : Service() {
         val channelName = "Alarm Notification"
         val notificationManager = getSystemService(NotificationManager::class.java)
 
-        // Create notification channel for newer Android versions
+        // إنشاء قناة الإشعارات فقط إذا كان الجهاز Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
@@ -75,19 +75,24 @@ class AlarmService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Set up "Stop" button in the notification
+
+        // زر إيقاف المنبه
         val stopIntent = Intent(this, StopAlarmReceiver::class.java)
         val stopPendingIntent = PendingIntent.getBroadcast(
             this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return Notification.Builder(this, channelId)
+        // استخدم NotificationCompat لضمان التوافق
+        val builder = androidx.core.app.NotificationCompat.Builder(this, channelId)
             .setContentTitle("المنبه يرن")
-            .setContentText("اضغط لايقاف المنبه")
+            .setContentText("اضغط لإيقاف المنبه")
             .setSmallIcon(R.drawable.ic_alarm)
             .addAction(android.R.drawable.ic_delete, "التوقف", stopPendingIntent)
-            .setOngoing(true) // Prevent the notification from being dismissed
-            .build()
+            .setOngoing(true)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+
+        return builder.build()
     }
+
 }
 

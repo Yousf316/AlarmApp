@@ -4,6 +4,7 @@ import { getPrayerTimesByCity, getPrayerTimesForNextDays } from '../../api/praye
 import PrayerTimeSelector from './PrayerTimeSelector';
 import { PrayerContext } from "../context/PrayerContext"; // Import PrayerContext
 import TimeCalculate from '../librarys/TimeCalculate';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 I18nManager.forceRTL(true);
 
@@ -72,6 +73,7 @@ handleCitySelect(selectedCity,selectedCountry);
   }
 
   return (
+    <SafeAreaView style={{ flex: 1 }}>
     <View  >
               <PrayerTimeSelector onSelect={handleCitySelect} 
               selectedCountry={selectedCountry} 
@@ -116,6 +118,7 @@ handleCitySelect(selectedCity,selectedCountry);
         </View>
         </View>
     </View>
+    </SafeAreaView>
   );
 };
 

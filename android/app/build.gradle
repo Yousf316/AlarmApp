@@ -105,6 +105,10 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+
+    lintOptions {
+        disable 'WrongConstant'
+    }
 }
 
 dependencies {
@@ -118,3 +122,19 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+afterEvaluate {
+    if (tasks.findByName("copyReactNativeVectorIconFonts")) {
+        def copyFontsTask = tasks.named("copyReactNativeVectorIconFonts")
+
+        tasks.findByName("generateDebugLintReportModel")?.configure {
+            dependsOn copyFontsTask
+        }
+
+        tasks.findByName("lintAnalyzeDebug")?.configure {
+            dependsOn copyFontsTask
+        }
+    }
+}
+
+

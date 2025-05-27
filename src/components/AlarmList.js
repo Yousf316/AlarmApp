@@ -7,6 +7,7 @@ import AlarmItem from "./AlarmItem";
 import { addUserTime, getUserTimes } from "../../database/userTimeService";
 import clsAlarm from "../librarys/clsAlaram";
 import clsUtility from "../librarys/clsUtilty";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 export default function AlarmList() {
@@ -149,6 +150,7 @@ export default function AlarmList() {
   };
 
   return (
+     <SafeAreaView style={{ flex: 1 }}>
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.addButton}
@@ -172,6 +174,7 @@ export default function AlarmList() {
         onAddAlarm={handleAddAlarm}
       />
     </View>
+    </SafeAreaView>
   );
 }
 
