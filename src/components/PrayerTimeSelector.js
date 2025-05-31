@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 
@@ -9,7 +9,7 @@ const countries = [
 ];
 
 const citiesByCountry = {
-  "SA": [
+  SA: [
     { label: "جدة", value: "Jeddah" },
     { label: "الرياض", value: "Riyadh" },
     { label: "مكة", value: "Mecca" },
@@ -24,11 +24,15 @@ const citiesByCountry = {
   ],
 };
 
-const PrayerTimeSelector = ({ onSelect ,selectedCountry, setSelectedCountry,selectedCity, setSelectedCity
-  ,selectedCityar, setSelectedCityar
+const PrayerTimeSelector = ({
+  onSelect,
+  selectedCountry,
+  setSelectedCountry,
+  selectedCity,
+  setSelectedCity,
+  selectedCityar,
+  setSelectedCityar,
 }) => {
-  
-
   useEffect(() => {
     if (selectedCountry && selectedCity) {
       onSelect(selectedCity, selectedCountry);
@@ -42,11 +46,17 @@ const PrayerTimeSelector = ({ onSelect ,selectedCountry, setSelectedCountry,sele
         selectedValue={selectedCountry}
         onValueChange={(value) => {
           setSelectedCountry(value);
-          setSelectedCity(null);
+          const firstCity = citiesByCountry[value]?.[0]?.value || null;
+          setSelectedCity(firstCity);
+          if (firstCity) {
+            setSelectedCityar(citiesByCountry[value][0].label);
+          } else {
+            setSelectedCityar(null);
+          }
         }}
         style={pickerStyles}
       >
-        <Picker.Item label="اختر الدولة..." value={selectedCountry} />
+        <Picker.Item label="اختر الدولة..." value={null} />
         {countries.map((country) => (
           <Picker.Item key={country.value} label={country.label} value={country.value} />
         ))}
@@ -57,17 +67,18 @@ const PrayerTimeSelector = ({ onSelect ,selectedCountry, setSelectedCountry,sele
           <Text style={styles.label}>اختر المدينة:</Text>
           <Picker
             selectedValue={selectedCity}
-            onValueChange={(value) =>{ setSelectedCity(value)
-              console.log("Selected City:", value);
-              if(value!= null)
-              setSelectedCityar(citiesByCountry[selectedCountry].find((city) => city.value === value).label)
+            onValueChange={(value) => {
+              setSelectedCity(value);
+              if (value != null) {
+                setSelectedCityar(
+                  citiesByCountry[selectedCountry].find((city) => city.value === value).label
+                );
+              }
             }}
             style={pickerStyles}
-            
           >
-            <Picker.Item label="اختر المدينة..." value={selectedCity}  />
+            <Picker.Item label="اختر المدينة..." value={null} />
             {citiesByCountry[selectedCountry]?.map((city) => (
-              
               <Picker.Item key={city.value} label={city.label} value={city.value} />
             ))}
           </Picker>
