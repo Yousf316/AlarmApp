@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 
 const countries = [
@@ -39,49 +39,53 @@ const PrayerTimeSelector = ({
     }
   }, [selectedCity, selectedCountry]);
 
+  const pickerHeight = Platform.OS === "ios" ? 150 : 60; // iOS needs taller height
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>اختر الدولة:</Text>
-      <Picker
-        selectedValue={selectedCountry}
-        onValueChange={(value) => {
-          setSelectedCountry(value);
-          const firstCity = citiesByCountry[value]?.[0]?.value || null;
-          setSelectedCity(firstCity);
-          if (firstCity) {
-            setSelectedCityar(citiesByCountry[value][0].label);
-          } else {
-            setSelectedCityar(null);
-          }
-        }}
-        style={pickerStyles}
-      >
-        <Picker.Item label="اختر الدولة..." value={null} />
-        {countries.map((country) => (
-          <Picker.Item key={country.value} label={country.label} value={country.value} />
-        ))}
-      </Picker>
+      <View style={[pickerWrapper, { height: pickerHeight }]}>
+        <Picker
+          selectedValue={selectedCountry}
+          onValueChange={(value) => {
+            setSelectedCountry(value);
+            const firstCity = citiesByCountry[value]?.[0]?.value || null;
+            setSelectedCity(firstCity);
+            if (firstCity) {
+              setSelectedCityar(citiesByCountry[value][0].label);
+            } else {
+              setSelectedCityar(null);
+            }
+          }}
+        >
+          <Picker.Item label="اختر الدولة..." value={null} />
+          {countries.map((country) => (
+            <Picker.Item key={country.value} label={country.label} value={country.value} />
+          ))}
+        </Picker>
+      </View>
 
       {selectedCountry && (
         <>
           <Text style={styles.label}>اختر المدينة:</Text>
-          <Picker
-            selectedValue={selectedCity}
-            onValueChange={(value) => {
-              setSelectedCity(value);
-              if (value != null) {
-                setSelectedCityar(
-                  citiesByCountry[selectedCountry].find((city) => city.value === value).label
-                );
-              }
-            }}
-            style={pickerStyles}
-          >
-            <Picker.Item label="اختر المدينة..." value={null} />
-            {citiesByCountry[selectedCountry]?.map((city) => (
-              <Picker.Item key={city.value} label={city.label} value={city.value} />
-            ))}
-          </Picker>
+          <View style={[pickerWrapper, { height: pickerHeight }]}>
+            <Picker
+              selectedValue={selectedCity}
+              onValueChange={(value) => {
+                setSelectedCity(value);
+                if (value != null) {
+                  setSelectedCityar(
+                    citiesByCountry[selectedCountry].find((city) => city.value === value).label
+                  );
+                }
+              }}
+            >
+              <Picker.Item label="اختر المدينة..." value={null} />
+              {citiesByCountry[selectedCountry]?.map((city) => (
+                <Picker.Item key={city.value} label={city.label} value={city.value} />
+              ))}
+            </Picker>
+          </View>
         </>
       )}
     </View>
@@ -100,13 +104,13 @@ const styles = StyleSheet.create({
   },
 });
 
-const pickerStyles = {
-  height: 60,
+const pickerWrapper = {
   borderWidth: 1,
   borderColor: "#007AFF",
   borderRadius: 5,
   marginBottom: 10,
-  color: "#333",
+  justifyContent: "center",
+  overflow: "hidden",
 };
 
 export default PrayerTimeSelector;

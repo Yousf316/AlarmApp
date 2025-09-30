@@ -90,11 +90,16 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
 
         {/* خيار التكرار اليومي */}
         <View style={styles.checkboxContainer}>
+          <View style={styles.checkbox}>
           <Checkbox
+          
             status={allDays ? "checked" : "unchecked"}
             onPress={() => setallDays(!allDays)}
             color="#007bff"
+            uncheckedColor="#000000ff" // border color
+       
           />
+          </View>
           <Text style={styles.checkboxLabel}>جميع الصلوات</Text>
         </View>
 
@@ -102,11 +107,14 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
         <Text style={styles.daysTitle}>اختيار الصلاة</Text>
         {Object.keys(selectedPrayers).map((day) => (
           <View key={day} style={styles.checkboxContainer}>
+            <View style={styles.checkbox}>
             <Checkbox
               status={selectedPrayers[day] ? "checked" : "unchecked"}
               onPress={() => toggleDay(day)}
               color="#007bff"
+
             />
+            </View>
             <Text style={styles.checkboxLabel}>{clsUtility.GetNamePrayerAr(day)}</Text>
           </View>
         ))}
@@ -201,6 +209,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  checkbox:{
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#007AFF", // iOS blue
+    backgroundColor: "transparent",
+  }
 });
 
 export default AddAlarmModal;
