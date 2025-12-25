@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
+import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert ,Button} from "react-native";
 import {  initDB,   } from "../../database/db";
 import { PrayerContext } from "../context/PrayerContext";
 import AddAlarmModal from "./AddAlarmModal";
@@ -8,6 +8,7 @@ import { addUserTime, getUserTimes } from "../../database/userTimeService";
 import clsAlarm from "../librarys/clsAlaram";
 import clsUtility from "../librarys/clsUtilty";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { clearAllNotifee } from "../librarys/NotificationManager";
 
 
 export default function AlarmList() {
@@ -157,7 +158,9 @@ export default function AlarmList() {
         onPress={() => setIsModalVisible(true)}
       >
         <Text style={styles.addButtonText}>إضافة منبه</Text>
+
       </TouchableOpacity>
+      <Button title="الغاء جميع التنبيهات" onPress={() => clearAllNotifee()} />
 
       <FlatList
       key={alarms.length}

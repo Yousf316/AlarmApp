@@ -39,48 +39,66 @@ class TimeCalculate {
 
 
 
-       calculateAlarmTime = (date, prayerTime, hoursBefore, minutesBefore) => {
-        if (!prayerTime || typeof prayerTime !== "string" || !prayerTime.includes(":")) {
-            Alert.alert("خطأ", "وقت الصلاة غير صحيح أو مفقود.");
-            console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
-            return null;
-        }
-    
-        prayerTime = prayerTime.split(' ')[0]; 
-    
-        // Convert "HH:MM" string to hour and minute
-        const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
-    
-        if (isNaN(hour) || isNaN(minute)) {
-            Alert.alert("خطأ", "تنسيق وقت الصلاة غير صالح.");
-            console.log("❌ خطأ: القيم المستخرجة غير صالحة:", { hour, minute });
-            return null;
-        }
-    
-        if (isNaN(hoursBefore) || isNaN(minutesBefore)) {
-            Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة للساعات والدقائق.");
-            console.log("❌ خطأ: القيم المدخلة غير صحيحة", hoursBefore, minutesBefore);
-            return null;
-        }
-    
-        console.log("✅ وقت الصلاة:", hour, minute);
-    
-        let totalMinutes = hour * 60 + minute; // Convert prayer time to total minutes
-        let alarmMinutes = totalMinutes - (hoursBefore * 60 + minutesBefore); // Subtract the time before
-    
-        // If the alarm time is negative, subtract one day from the date
-        if (alarmMinutes < 0) {
-            alarmMinutes += 1440; // Add 24 hours (1440 minutes) to adjust to the next day
-            const prevDate = new Date(date); // Convert the date string to a Date object
-            prevDate.setDate(prevDate.getDate() - 1); // Subtract one day from the date
-            date = prevDate.toISOString().split("T")[0]; // Update the date to the previous day
-        }
-    
-        let finalHour = Math.floor(alarmMinutes / 60);
-        let finalMinute = alarmMinutes % 60;
-    
-        return { finalDate: date, finalHour, finalMinute };
-    };
+      calculateAlarmTime = (date, prayerTime, hoursBefore, minutesBefore) => {
+  if (!prayerTime || typeof prayerTime !== "string" || !prayerTime.includes(":")) {
+    Alert.alert("خطأ", "وقت الصلاة غير صحيح أو مفقود.");
+    console.log("❌ خطأ: وقت الصلاة غير صالح:", prayerTime);
+    return null;
+  }
+
+  prayerTime = prayerTime.split(" ")[0];
+  const [hour, minute] = prayerTime.split(":").map((part) => parseInt(part, 10));
+
+  if (isNaN(hour) || isNaN(minute)) {
+    Alert.alert("خطأ", "تنسيق وقت الصلاة غير صالح.");
+    console.log("❌ خطأ: القيم المستخرجة غير صالحة:", { hour, minute });
+    return null;
+  }
+
+  if (isNaN(hoursBefore) || isNaN(minutesBefore)) {
+    Alert.alert("خطأ", "يرجى إدخال أرقام صحيحة للساعات والدقائق.");
+    console.log("❌ خطأ: القيم المدخلة غير صحيحة", hoursBefore, minutesBefore);
+    return null;
+  }
+
+  console.log("✅ وقت الصلاة:", hour, minute);
+
+  // 🧠 Parse the date correctly (supports DD-MM-YYYY)
+  let baseDate;
+  if (typeof date === "string" && date.includes("-")) {
+    const parts = date.split("-");
+    if (parts[0].length === 2) {
+      // probably DD-MM-YYYY → fix order
+      const [day, month, year] = parts.map(Number);
+      baseDate = new Date(year, month - 1, day);
+    } else {
+      // assume YYYY-MM-DD
+      baseDate = new Date(date);
+    }
+  } else {
+    baseDate = new Date();
+  }
+
+  if (isNaN(baseDate.getTime())) {
+    baseDate = new Date(); // fallback if invalid
+  }
+
+  let totalMinutes = hour * 60 + minute;
+  let alarmMinutes = totalMinutes - (hoursBefore * 60 + minutesBefore);
+
+  // If alarm time goes to previous day
+  if (alarmMinutes < 0) {
+    alarmMinutes += 1440; // add 24h
+    baseDate.setDate(baseDate.getDate() - 1);
+  }
+
+  const finalHour = Math.floor(alarmMinutes / 60);
+  const finalMinute = alarmMinutes % 60;
+  const finalDate = baseDate.toISOString().split("T")[0];
+
+  return { finalDate, finalHour, finalMinute };
+};
+
     
     static isValidTime(hours, minutes) {
         return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;

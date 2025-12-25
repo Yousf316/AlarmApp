@@ -1,5 +1,5 @@
 import React, { use, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { Checkbox } from "react-native-paper";
 import clsUtility from "../librarys/clsUtilty";
 
@@ -65,8 +65,13 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
 
   return (
     <View style={styles.modalContainer}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>إضافة منبه جديد</Text>
+      <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.modalContent}
+    >
+      <TouchableWithoutFeedback  onPress={Keyboard.dismiss}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>إضافة منبه جديد</Text>
 
         <Text style={styles.checkboxLabel}>الساعة</Text>
         <TextInput
@@ -135,6 +140,8 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
           </TouchableOpacity>
         </View>
       </View>
+      </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </View>
   );
 };
