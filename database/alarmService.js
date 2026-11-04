@@ -1,4 +1,10 @@
-import {query, run} from './db';
+import {getJSON, nextId, setJSON} from '../src/core/storage/mmkv';
+
+const KEY = 'alarms';
+const SEQ = 'alarms_seq';
+
+const load = () => getJSON(KEY, []);
+const byTime = (a, b) => a.timestamp - b.timestamp;
 
 /**
  * Store one scheduled OS alarm. The returned id is used as the Android
@@ -6,22 +12,32 @@ import {query, run} from './db';
  * so scheduling and cancelling always use the same key.
  */
 export const addAlarm = async (userTimeId, prayer, timestamp) => {
-  const result = await run(
-    'INSERT INTO alarms (user_time_id, prayer, timestamp) VALUES (?, ?, ?)',
-    [userTimeId, prayer, timestamp],
-  );
-  return result.insertId;
+  const id = nextId(SEQ);
+  setJSON(KEY, [...load(), {id, user_time_id: userTimeId, prayer, timestamp}]);
+  return id;
 };
 
-export const getAlarms = () =>
-  query('SELECT * FROM alarms ORDER BY timestamp');
+export const getAlarms = async () => load().sort(byTime);
 
-export const getAlarmsByUserTimeId = id =>
-  query('SELECT * FROM alarms WHERE user_time_id = ? ORDER BY timestamp', [id]);
+export const getAlarmsByUserTimeId = async id =>
+  load()
+    .filter(a => a.user_time_id === id)
+    .sort(byTime);
 
-export const deleteAlarm = id => run('DELETE FROM alarms WHERE id = ?', [id]);
+export const deleteAlarm = async id => {
+  setJSON(
+    KEY,
+    load().filter(a => a.id !== id),
+  );
+};
 
-export const deleteAlarmByUserTime = id =>
-  run('DELETE FROM alarms WHERE user_time_id = ?', [id]);
+export const deleteAlarmByUserTime = async id => {
+  setJSON(
+    KEY,
+    load().filter(a => a.user_time_id !== id),
+  );
+};
 
-export const deleteAllAlarms = () => run('DELETE FROM alarms');
+export const deleteAllAlarms = async () => {
+  setJSON(KEY, []);
+};

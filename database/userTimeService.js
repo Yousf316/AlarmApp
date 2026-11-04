@@ -1,39 +1,43 @@
-import {query, run, runBatch} from './db';
+import {getJSON, nextId, setJSON} from '../src/core/storage/mmkv';
 
 export const PRAYER_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-const parsePrayers = value =>
-  typeof value === 'string' && value.length > 0
-    ? value.split(',').filter(p => PRAYER_NAMES.includes(p))
-    : [];
+const KEY = 'user_times';
+const SEQ = 'user_times_seq';
+
+const load = () => getJSON(KEY, []);
 
 /**
  * Save a user alarm: "ring <hour>h <minute>m before each of <prayers>".
  * @param {number} hour
  * @param {number} minute
  * @param {string[]} prayers e.g. ['Fajr', 'Isha']
+ * @returns {Promise<number>} new id
  */
 export const addUserTime = async (hour, minute, prayers) => {
   const valid = prayers.filter(p => PRAYER_NAMES.includes(p));
-  const result = await run(
-    'INSERT INTO user_times (hour, minute, prayers) VALUES (?, ?, ?)',
-    [hour, minute, valid.join(',')],
-  );
-  return result.insertId;
+  const id = nextId(SEQ);
+  setJSON(KEY, [...load(), {id, hour, minute, prayers: valid}]);
+  return id;
 };
 
 /** @returns {Promise<Array<{id:number,hour:number,minute:number,prayers:string[]}>>} */
-export const getUserTimes = async () => {
-  const rows = await query('SELECT * FROM user_times ORDER BY id');
-  return rows.map(r => ({...r, prayers: parsePrayers(r.prayers)}));
-};
+export const getUserTimes = async () => load();
 
 /** Delete a user alarm and its scheduled rows. */
-export const deleteUserTime = id =>
-  runBatch([
-    ['DELETE FROM alarms WHERE user_time_id = ?', [id]],
-    ['DELETE FROM user_times WHERE id = ?', [id]],
-  ]);
+export const deleteUserTime = async id => {
+  setJSON(
+    KEY,
+    load().filter(u => u.id !== id),
+  );
+  const alarms = getJSON('alarms', []);
+  setJSON(
+    'alarms',
+    alarms.filter(a => a.user_time_id !== id),
+  );
+};
 
-export const deleteAllUserTimes = () =>
-  runBatch([['DELETE FROM alarms'], ['DELETE FROM user_times']]);
+export const deleteAllUserTimes = async () => {
+  setJSON(KEY, []);
+  setJSON('alarms', []);
+};

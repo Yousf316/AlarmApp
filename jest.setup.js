@@ -7,6 +7,23 @@ jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
 
+// In-memory MMKV: the real one needs the native NitroModules runtime.
+jest.mock('react-native-mmkv', () => ({
+  createMMKV: jest.fn(() => {
+    const map = new Map();
+    return {
+      set: (key, value) => map.set(key, value),
+      getString: key => (typeof map.get(key) === 'string' ? map.get(key) : undefined),
+      getNumber: key => (typeof map.get(key) === 'number' ? map.get(key) : undefined),
+      getBoolean: key => (typeof map.get(key) === 'boolean' ? map.get(key) : undefined),
+      contains: key => map.has(key),
+      remove: key => map.delete(key),
+      getAllKeys: () => Array.from(map.keys()),
+      clearAll: () => map.clear(),
+    };
+  }),
+}));
+
 jest.mock('react-native-sqlite-storage', () => ({
   openDatabase: jest.fn(() => ({transaction: jest.fn()})),
   deleteDatabase: jest.fn(),

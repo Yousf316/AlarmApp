@@ -1,17 +1,13 @@
-import {query, run} from './db';
+import {getJSON, setJSON, storage} from '../src/core/storage/mmkv';
 
 export const DEFAULT_LOCATION = {city: 'Jeddah', country: 'SA'};
 
-export const getSetting = async key => {
-  const rows = await query('SELECT value FROM settings WHERE key = ?', [key]);
-  return rows.length ? rows[0].value : null;
-};
+// Keys keep the "setting:" prefix used by the SQLite → MMKV migration.
+export const getSetting = async key => storage.getString(`setting:${key}`) ?? null;
 
-export const setSetting = (key, value) =>
-  run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
-    key,
-    value,
-  ]);
+export const setSetting = async (key, value) => {
+  storage.set(`setting:${key}`, value);
+};
 
 /** @returns {Promise<{city:string,country:string}>} */
 export const getLocation = async () => {
@@ -42,3 +38,5 @@ export const getPrayerCache = async () => {
 
 export const setPrayerCache = (city, country, days) =>
   setSetting('prayer_cache', JSON.stringify({city, country, days}));
+
+export {getJSON, setJSON};
