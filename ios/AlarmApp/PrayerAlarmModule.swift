@@ -51,6 +51,21 @@ final class PrayerAlarmCenter: NSObject, UNUserNotificationCenterDelegate {
 
   @objc private func appDidBecomeActive() {
     assertDelegate(reason: "didBecomeActive")
+    ensureCategories()
+  }
+
+  /// Notifee's `setNotificationCategories` replaces *every* registered
+  /// category, wiping ours without touching the delegate. Re-register ours
+  /// (merge-based, idempotent) whenever the delegate was not the one that
+  /// changed. TEMPORARY: goes away together with Notifee.
+  func ensureCategories() {
+    UNUserNotificationCenter.current().getNotificationCategories { existing in
+      let ids = Set(existing.map { $0.identifier })
+      if !ids.contains(kNoSnoozeCategory) || !ids.contains(snoozeCategoryId(1)) {
+        NSLog("[PrayerAlarm] WARNING: alarm categories were replaced - re-registering")
+        self.registerCategories()
+      }
+    }
   }
 
   /// Re-assert ownership if somebody (Notifee) replaced the delegate.
@@ -386,6 +401,8 @@ final class PrayerAlarmModule: NSObject {
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    resolve(PrayerAlarmCenter.shared.assertDelegate(reason: "js"))
+    let replaced = PrayerAlarmCenter.shared.assertDelegate(reason: "js")
+    PrayerAlarmCenter.shared.ensureCategories()
+    resolve(replaced)
   }
 }
