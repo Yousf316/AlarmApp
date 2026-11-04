@@ -22,12 +22,15 @@ const hex = n => n.toString(16).padStart(8, '0');
 /** Deterministic id: the same alarm/day/prayer always gets the same id. */
 export const occurrenceId = (alarmId, dateKey, prayer) => `${alarmId}|${dateKey}|${prayer}`;
 
+/** Short stable hash of any list of values (used as a change detector). */
+export const fingerprintOfParts = parts => hex(hash32(parts.join('|')));
+
 /**
  * Changes whenever anything that the OS-registered alarm depends on changes.
  * Same id + different fingerprint ⇒ cancel and schedule again.
  */
 export const fingerprintOf = ({fireAt, soundId, style, snoozeMin, maxSnooze}) =>
-  hex(hash32([fireAt, soundId, style, snoozeMin, maxSnooze].join('|')));
+  fingerprintOfParts([fireAt, soundId, style, snoozeMin, maxSnooze]);
 
 /** Per-prayer manual adjustment, in minutes (positive = later). */
 export const applyAdjustment = (prayerMs, adjustments, prayer) =>

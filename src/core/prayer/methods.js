@@ -21,3 +21,9 @@ export const METHODS = {
 };
 
 export const resolveMethod = id => (METHODS[id] ? id : DEFAULT_METHOD);
+
+// Same choice the prayer-times screen makes (api/prayerTimes.js), so alarms
+// match the times that are displayed.
+const METHOD_BY_COUNTRY = {SA: 'UmmAlQura', EG: 'Egyptian', AE: 'Gulf'};
+
+export const methodForCountry = country => METHOD_BY_COUNTRY[country] ?? DEFAULT_METHOD;
