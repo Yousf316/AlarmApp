@@ -17,8 +17,9 @@ const App = () => {
         if (migratedFromLegacy) {
           await clsAlarm.clearLegacyScheduled();
         }
-        // Renew the rolling window of scheduled alarms (iOS 64 limit, 20 days).
-        await clsAlarm.rescheduleAll({force: migratedFromLegacy});
+        // Keep the registered alarms in line with the timetable (rolling window,
+        // iOS 64-notification limit); only what changed is touched.
+        await clsAlarm.rescheduleAll();
       } catch (e) {
         console.warn('Bootstrap failed:', e);
       }
@@ -28,7 +29,7 @@ const App = () => {
     const appStateSub = AppState.addEventListener('change', state => {
       if (state === 'active') {
         initDB()
-          .then(() => clsAlarm.rescheduleAll({force: false}))
+          .then(() => clsAlarm.rescheduleAll())
           .catch(e => console.warn('Reschedule failed:', e));
       }
     });

@@ -65,7 +65,7 @@ const PrayerScreen = () => {
     await setLocation(city, country);
     await load(next, {force: true});
     // Existing alarms must follow the new city's prayer times.
-    const result = await clsAlarm.rescheduleAll({force: true});
+    const result = await clsAlarm.rescheduleAll();
     if (!result.ok) {
       Alert.alert('تنبيه', 'تعذر تحديث المنبهات للمدينة الجديدة. تأكد من الاتصال بالشبكة.');
     }

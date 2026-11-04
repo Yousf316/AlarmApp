@@ -6,11 +6,14 @@ import {initDB} from '../../database/db';
 import {addUserTime, getUserTimes} from '../../database/userTimeService';
 import AddAlarmModal from './AddAlarmModal';
 import AlarmItem from './AlarmItem';
+import CoverageBanner from './CoverageBanner';
 import clsAlarm from '../librarys/clsAlaram';
+import {scheduleStore} from '../core/alarms/scheduleStore';
 import {requestPermission, scheduleTestAlarm} from '../core/alarms/prayerAlarmNative';
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
+  const [coverage, setCoverage] = useState(() => scheduleStore.loadStatus());
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -18,6 +21,7 @@ export default function AlarmList() {
     try {
       await initDB();
       setAlarms(await getUserTimes());
+      setCoverage(scheduleStore.loadStatus());
     } catch (error) {
       console.error('❌ Error fetching alarms:', error);
       Alert.alert('خطأ', 'تعذر تحميل المنبهات.');
@@ -36,7 +40,7 @@ export default function AlarmList() {
     try {
       await initDB();
       await addUserTime(hour, minute, prayers);
-      const result = await clsAlarm.rescheduleAll({force: true});
+      const result = await clsAlarm.rescheduleAll();
       await fetchAlarms();
       if (result.ok) {
         Alert.alert('تمت العملية بنجاح', 'تم ضبط المنبه');
@@ -80,6 +84,7 @@ export default function AlarmList() {
           try {
             await clsAlarm.cancelAlarm(id);
             setAlarms(prev => prev.filter(alarm => alarm.id !== id));
+            setCoverage(scheduleStore.loadStatus());
           } catch (error) {
             console.error('❌ Error deleting alarm:', error);
             Alert.alert('خطأ', 'تعذر حذف المنبه، حاول مرة أخرى.');
@@ -99,6 +104,7 @@ export default function AlarmList() {
           try {
             await clsAlarm.cancelAll();
             setAlarms([]);
+            setCoverage(null);
           } catch (error) {
             console.error('❌ Error deleting all alarms:', error);
             Alert.alert('خطأ', 'تعذر حذف المنبهات.');
@@ -123,6 +129,8 @@ export default function AlarmList() {
             <Text style={styles.testButtonText}>منبه تجريبي بعد 10 ثوانٍ</Text>
           </TouchableOpacity>
         )}
+
+        {alarms.length > 0 && <CoverageBanner status={coverage} />}
 
         {alarms.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={handleDeleteAll}>

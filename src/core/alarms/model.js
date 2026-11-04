@@ -39,7 +39,10 @@ export const normalizeAlarm = raw => {
   };
 };
 
-/** Old "H:M before each of these prayers" row → one alarm per prayer. */
+/**
+ * Old "H:M before each of these prayers" row → one alarm per prayer.
+ * Keeps what those alarms always did: a 5-minute snooze, repeatable forever.
+ */
 export const fromLegacyUserTime = ut =>
   (ut.prayers ?? [])
     .map(prayer =>
@@ -48,6 +51,8 @@ export const fromLegacyUserTime = ut =>
         prayer,
         kind: 'before',
         offsetMin: Number(ut.hour) * 60 + Number(ut.minute),
+        snoozeMin: 5,
+        maxSnooze: 0,
       }),
     )
     .filter(Boolean);

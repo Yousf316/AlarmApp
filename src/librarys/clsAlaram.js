@@ -1,42 +1,25 @@
 import {Platform, NativeModules} from 'react-native';
-import * as prayerAlarm from '../core/alarms/prayerAlarmNative';
-import {
-  addAlarm,
-  deleteAllAlarms,
-  getAlarmsByUserTimeId,
-} from '../../database/alarmService';
+import {getLocation} from '../../database/settingsService';
 import {
   deleteAllUserTimes,
   deleteUserTime,
   getUserTimes,
 } from '../../database/userTimeService';
-import {getLocation} from '../../database/settingsService';
-import {calculateAlarmTimestamp, formatDuration} from './TimeCalculate';
-import clsUtility from './clsUtilty';
-import {loadPrayerTimes} from './prayerData';
-import {ALARM_SOUND_IOS, LEGACY_SNOOZE_MINUTES} from './NotificationManager';
+import {fromLegacyUserTime} from '../core/alarms/model';
+import {buildDesired} from '../core/alarms/window';
+import {reconcile, resetSchedule} from '../core/alarms/reconciler';
+import {createAdapter} from '../core/alarms/adapters';
+import {scheduleStore} from '../core/alarms/scheduleStore';
+import * as prayerAlarm from '../core/alarms/prayerAlarmNative';
+import {methodForCountry} from '../core/prayer/methods';
+import {getTimetable} from '../core/prayer/timetableRepo';
+import {timetableStore} from '../core/storage/timetableStore';
 
 const {AlarmModule} = NativeModules;
 
-// iOS keeps at most 64 pending local notifications per app – the rest are
-// silently dropped. Keep a margin for the renewal reminder and snoozes.
-const IOS_MAX_SCHEDULED = 60;
-// Android allows 500 pending alarms per app (Android 12+).
-const ANDROID_MAX_SCHEDULED = 450;
-// Ignore alarms that would fire within this window (avoid racing "now").
-const MIN_LEAD_MS = 5 * 1000;
-// Skip automatic (non-forced) reschedules if done recently with same inputs.
-const AUTO_RESCHEDULE_TTL_MS = 6 * 60 * 60 * 1000;
-
-const RENEW_NOTIFICATION_ID = 'renew-reminder';
-// Android reminder id (AlarmModule.scheduleReminder takes an int).
-const ANDROID_RENEW_REMINDER_ID = 1;
-
-const alarmNotificationId = id => `alarm-${id}`;
-
 // ───────────────────────────────
 // Serialization: every mutation runs one after another so add / delete /
-// reschedule can never interleave and corrupt the OS ↔ DB mapping.
+// reschedule can never interleave and corrupt the OS ↔ record mapping.
 // ───────────────────────────────
 let queue = Promise.resolve();
 const serialize = fn => {
@@ -45,203 +28,134 @@ const serialize = fn => {
   return result;
 };
 
-let lastReschedule = null; // { at, signature }
+const adapterForPlatform = () => createAdapter({platform: Platform.OS});
 
-// ───────────────────────────────
-// Platform primitives
-// ───────────────────────────────
-
-const scheduleNative = async (alarmId, timestamp, label) => {
-  if (Platform.OS === 'android') {
-    await AlarmModule.setAlarm(alarmId, timestamp, label);
-    return;
-  }
-  await prayerAlarm.schedule({
-    id: alarmNotificationId(alarmId),
-    fireAt: timestamp,
-    title: `⏰ ${label}`,
-    body: 'المنبه يرن',
-    sound: ALARM_SOUND_IOS,
-    snoozeMinutes: LEGACY_SNOOZE_MINUTES,
-    maxSnooze: 0,
-  });
-};
-
-const cancelNative = async alarmId => {
-  if (Platform.OS === 'android') {
-    await AlarmModule.cancelAlarm(alarmId);
-    return;
-  }
-  // Removes the pending request and anything already delivered.
-  await prayerAlarm.cancel([alarmNotificationId(alarmId)]);
-};
+/** Alarm ids look like `legacy-<userTimeId>-<Prayer>`; occurrence ids start with them. */
+const occurrencePrefix = userTimeId => `legacy-${userTimeId}-`;
 
 /**
- * Cancel every alarm this app scheduled, including the renew reminder (keeps
- * snoozes the user asked for on iOS).
+ * Registrations made before 3a (sequential ids, 20-day window, one reminder) are
+ * removed once, the first time the new scheduler is able to rebuild them.
  */
-const cancelAllNative = async () => {
-  if (Platform.OS === 'android') {
-    await AlarmModule.cancelAll();
-    await AlarmModule.cancelReminder(ANDROID_RENEW_REMINDER_ID);
+const ensureMigrated = async adapter => {
+  if (scheduleStore.isMigrated()) {
     return;
   }
-  // Alarms left by the Notifee-based versions have different ids and would
-  // ring next to the new ones, so drop them first.
-  await prayerAlarm.cancelLegacy();
-  await prayerAlarm.cancelAll(false);
+  await resetSchedule({adapter, store: scheduleStore});
+  scheduleStore.markMigrated();
 };
 
-const RENEW_TITLE = 'افتح التطبيق لتجديد المنبهات';
-const RENEW_BODY = 'انتهت المنبهات المجدولة، افتح التطبيق ليتم جدولة الأيام القادمة.';
-
-/** Reminds the user to open the app before the scheduled window runs out. */
-const scheduleRenewReminder = async timestamp => {
-  if (Platform.OS === 'android') {
-    await AlarmModule.scheduleReminder(
-      ANDROID_RENEW_REMINDER_ID,
-      timestamp,
-      RENEW_TITLE,
-      RENEW_BODY,
-    );
-    return;
-  }
-  await prayerAlarm.schedule({
-    id: RENEW_NOTIFICATION_ID,
-    fireAt: timestamp,
-    title: RENEW_TITLE,
-    body: RENEW_BODY,
-    plain: true,
-  });
-};
-
-// ───────────────────────────────
-// Planning (pure)
-// ───────────────────────────────
+const loadAlarms = async () => (await getUserTimes()).flatMap(fromLegacyUserTime);
 
 /**
- * Build the sorted list of future alarms for all user alarms × days × prayers.
- * Exported for unit tests.
+ * Register what should be registered and nothing else. Needs the prayer
+ * timetable (cached, API or computed offline); without one nothing is touched.
  */
-export const buildAlarmPlan = (userTimes, days, now = Date.now()) => {
-  const plan = [];
-  for (const ut of userTimes) {
-    for (const day of days) {
-      for (const prayer of ut.prayers) {
-        const timestamp = calculateAlarmTimestamp({
-          prayerTimestamp: day.timestamps?.[prayer],
-          date: day.date,
-          prayerTime: day.timings?.[prayer],
-          hoursBefore: ut.hour,
-          minutesBefore: ut.minute,
-        });
-        if (timestamp == null || timestamp <= now + MIN_LEAD_MS) {
-          continue;
-        }
-        plan.push({
-          userTimeId: ut.id,
-          prayer,
-          timestamp,
-          label: `قبل ${clsUtility.GetNamePrayerAr(prayer)} بـ ${formatDuration(
-            ut.hour,
-            ut.minute,
-          )}`,
-        });
-      }
-    }
+const syncSchedule = async () => {
+  const location = await getLocation();
+  const loaded = await getTimetable({
+    location,
+    method: methodForCountry(location.country),
+    store: timetableStore,
+  });
+  if (!loaded) {
+    return {ok: false};
   }
-  plan.sort((a, b) => a.timestamp - b.timestamp);
-  const max = Platform.OS === 'ios' ? IOS_MAX_SCHEDULED : ANDROID_MAX_SCHEDULED;
-  return plan.slice(0, max);
-};
 
-// ───────────────────────────────
-// Public API
-// ───────────────────────────────
+  const adapter = adapterForPlatform();
+  await ensureMigrated(adapter);
+
+  const built = buildDesired({
+    alarms: await loadAlarms(),
+    timetable: loaded.timetable,
+    platform: Platform.OS,
+    pendingSnoozes: await adapter.pendingSnoozes(),
+  });
+  const result = await reconcile({desired: built.desired, adapter, store: scheduleStore});
+
+  const alarmsInWindow = built.desired.filter(item => item.type === 'alarm').length;
+  scheduleStore.saveStatus({
+    coverageUntil: built.coverageUntil,
+    tz: loaded.timetable.tz,
+    scheduled: alarmsInWindow,
+    source: loaded.status,
+    truncated: built.truncated,
+    blocked: built.blocked,
+    failures: result.cancelErrors.length + result.scheduleErrors.length,
+    updatedAt: Date.now(),
+  });
+  if (result.scheduleErrors.length) {
+    console.warn(`Failed to schedule ${result.scheduleErrors.length} alarm(s):`, result.scheduleErrors[0].error);
+  }
+  console.log(`📅 ${alarmsInWindow} alarms in the window (+${result.scheduled} registered, -${result.cancelled} cancelled)`);
+  return {
+    ok: true,
+    scheduled: alarmsInWindow,
+    coverageUntil: built.coverageUntil,
+    source: loaded.status,
+  };
+};
 
 class clsAlarm {
   /**
-   * Rebuild every scheduled alarm from user_times + prayer times.
-   * Run on app start, when the app returns to the foreground, after adding an
+   * Bring the OS registrations in line with the user's alarms and the prayer
+   * timetable. Cheap when nothing changed (no native calls except one query),
+   * so it runs on app start, on returning to the foreground, after adding an
    * alarm and after changing the city.
    *
-   * @param {{force?: boolean}} options force=false skips the work when it was
-   *        done recently with the same inputs.
-   * @returns {Promise<{ok: boolean, scheduled?: number, fromCache?: boolean, skipped?: boolean}>}
+   * @returns {Promise<{ok:boolean, scheduled?:number, coverageUntil?:number|null, source?:string}>}
    */
-  static rescheduleAll({force = true} = {}) {
-    return serialize(async () => {
-      const location = await getLocation();
-      const userTimes = await getUserTimes();
-      const signature = JSON.stringify({location, userTimes});
-
-      if (
-        !force &&
-        lastReschedule &&
-        lastReschedule.signature === signature &&
-        Date.now() - lastReschedule.at < AUTO_RESCHEDULE_TTL_MS
-      ) {
-        return {ok: true, skipped: true};
-      }
-
-      const data = await loadPrayerTimes(location);
-      if (!data) {
-        // No network and no cache: keep whatever is already scheduled.
-        return {ok: false};
-      }
-
-      const plan = buildAlarmPlan(userTimes, data.days);
-
-      await cancelAllNative();
-      await deleteAllAlarms();
-
-      let scheduled = 0;
-      for (const item of plan) {
-        const alarmId = await addAlarm(item.userTimeId, item.prayer, item.timestamp);
-        try {
-          await scheduleNative(alarmId, item.timestamp, item.label);
-          scheduled++;
-        } catch (e) {
-          console.warn(`Failed to schedule alarm ${alarmId}:`, e?.message ?? e);
-        }
-      }
-
-      if (plan.length) {
-        await scheduleRenewReminder(plan[plan.length - 1].timestamp + 60 * 1000);
-      }
-
-      lastReschedule = {at: Date.now(), signature};
-      console.log(`📅 Scheduled ${scheduled}/${plan.length} alarms`);
-      return {ok: true, scheduled, fromCache: data.fromCache};
-    });
+  static rescheduleAll() {
+    return serialize(syncSchedule);
   }
 
-  /** Cancel and delete one user alarm (all its scheduled occurrences). */
+  /** Cancel and delete one user alarm (all its registered occurrences). */
   static cancelAlarm(userTimeId) {
     return serialize(async () => {
-      const alarms = await getAlarmsByUserTimeId(userTimeId);
-      for (const alarm of alarms) {
-        // Throws on failure → DB rows are kept so the user can retry.
-        await cancelNative(alarm.id);
+      const adapter = adapterForPlatform();
+      const map = scheduleStore.loadMap();
+      const prefix = occurrencePrefix(userTimeId);
+      const ids = Object.keys(map).filter(id => id.startsWith(prefix));
+
+      let failure = null;
+      for (const id of ids) {
+        try {
+          await adapter.cancel({id, ...map[id]});
+          delete map[id];
+        } catch (error) {
+          failure = failure ?? error;
+        }
       }
+      scheduleStore.saveMap(map);
+      if (failure) {
+        // Throws → the row is kept so the user can retry.
+        throw failure;
+      }
+
       await deleteUserTime(userTimeId);
-      lastReschedule = null;
+      // The freed slots can take later occurrences of the other alarms.
+      try {
+        await syncSchedule();
+      } catch (error) {
+        console.warn('Refill after delete failed:', error?.message ?? error);
+      }
     });
   }
 
   /** Cancel and delete every alarm. */
   static cancelAll() {
     return serialize(async () => {
-      await cancelAllNative();
+      const adapter = adapterForPlatform();
+      await resetSchedule({adapter, store: scheduleStore});
       if (Platform.OS === 'ios') {
         await prayerAlarm.clearDelivered();
       }
       await deleteAllUserTimes();
-      lastReschedule = null;
+      scheduleStore.saveStatus(null);
     });
   }
 
-  /** Remove notifications scheduled by the pre-v2 id scheme. */
+  /** Remove everything registered with the OS by any earlier scheme (SQLite migration path). */
   static clearLegacyScheduled() {
     return serialize(async () => {
       if (Platform.OS === 'ios') {
@@ -250,6 +164,7 @@ class clsAlarm {
       } else {
         await AlarmModule.cancelAll();
       }
+      scheduleStore.saveMap({});
     });
   }
 }

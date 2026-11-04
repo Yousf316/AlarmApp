@@ -46,6 +46,11 @@ describe('fromLegacyUserTime', () => {
     ]);
   });
 
+  it('keeps the old behaviour: 5-minute snooze, no limit', () => {
+    const [a] = fromLegacyUserTime({id: 7, hour: 0, minute: 10, prayers: ['Fajr']});
+    expect([a.snoozeMin, a.maxSnooze]).toEqual([5, 0]);
+  });
+
   it('copes with empty prayers', () => {
     expect(fromLegacyUserTime({id: 1, hour: 0, minute: 5, prayers: []})).toEqual([]);
     expect(fromLegacyUserTime({id: 1, hour: 0, minute: 5})).toEqual([]);

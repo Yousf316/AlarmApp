@@ -1,7 +1,7 @@
 # تقرير تسليم: منبه الصلاة v2 (للمتابعة على macOS)
 
 > **إلى Claude على الماك:** هذا التقرير يكفي لتكمل العمل. اقرأه كاملاً، ثم `docs/PLAN.md` (الخطة المعتمدة من المستخدم). المستخدم يكتب بالعربية؛ أجبه بالعربية.
-> آخر تحديث: 2026-11-04 (مساءً، على الماك) — الفرع `feature/prayer-alarms-v2`. **1·3أ مُتحقَّق منها على محاكي iOS و1·3ب (حذف notifee) منفَّذة**؛ انظر القسم 6.
+> آخر تحديث: 2026-11-05 (على الماك) — الفرع `feature/prayer-alarms-v2`. **1·3أ و1·3ب و3أ منفَّذة**؛ التالي 3ب (Android أصلي). انظر القسم 6.
 
 ---
 
@@ -56,7 +56,14 @@ npx react-native run-ios      # أو افتح ios/AlarmApp.xcworkspace في Xcod
 - `src/core/alarms/` — `model.js` (`normalizeAlarm`, `fromLegacyUserTime`)، `planner.js` (`planOccurrences`, ids حتمية، `fingerprint`، `nid` لـ Android)، `prayerAlarmNative.js` (غلاف JS لـ Swift module).
 - `ios/AlarmApp/PrayerAlarmModule.swift` + `.m` + `AlarmApp.entitlements` (Time Sensitive)، و `AppDelegate.swift` (يستدعي `PrayerAlarmCenter.shared.install()` قبل `super`). الدوال: `getPermissionStatus/requestPermission/schedule({plain})/cancel/cancelAll/cancelLegacy/clearDelivered/getPendingIds`.
 - Android: `AlarmModule.kt` (`setAlarm/cancelAlarm/cancelAll/scheduleReminder/cancelReminder/canScheduleExactAlarms`) + `ReminderReceiver.kt` لتذكير التجديد (كان notifee).
-- التطبيق الحالي ما زال يجدول عبر `src/librarys/clsAlaram.js` بنموذج `user_times` القديم، لكن **عبر الكود الأصلي فقط**: `PrayerAlarmModule` على iOS و`AlarmModule` على Android. لا notifee في أي مكان.
+- **الجدولة (3أ):** `src/librarys/clsAlaram.js` واجهة رقيقة (`rescheduleAll/cancelAlarm/cancelAll/clearLegacyScheduled`) فوق `src/core/alarms/`:
+  - `window.js` (pure): نافذة iOS 57 منبه + 2 تذكير + احتياطي 5 غفوات (كل غفوة معلقة فوق الخمس تأخذ مكان منبه)، وAndroid 450، و`coverageUntil`، والتذكيران `renew-1` (قبل الانتهاء بـ24 ساعة) و`renew-2` (بعده بدقيقة).
+  - `reconciler.js`: diff بالـ id والـ fingerprint، يُنظّف المجدول مقابل `getPendingIds` (iOS) أو بالوقت (Android)، ولا يلمس ما لم يتغير. فشل الإلغاء يبقى مسجلاً لإعادة المحاولة.
+  - `adapters.js`: عمليات iOS (`PrayerAlarmModule`) وAndroid (`AlarmModule`)، و`scheduleStore.js`: السجل في MMKV (`schedule.map/status/v3`).
+  - المواقيت من `getTimetable` (سنة كاملة + fallback محلي) بطريقة الدولة (`methodForCountry`: SA/EG/AE)، والمنبهات من `user_times` عبر `fromLegacyUserTime` (غفوة 5 د بلا حد كما كانت).
+  - الترحيل لمرة واحدة (علامة `schedule.v3`): يلغي ما جدولته 1·3ب، ولا يعمل إلا إذا توفرت المواقيت (وإلا لا يُلمس شيء).
+  - `CoverageBanner` في تبويب "المنبه": "المنبهات مجدولة حتى الاثنين 16 نوفمبر (12 يوماً)"، تحذيري عند أقل من يومين.
+  - `PrayerScreen` ما زال يعرض الأوقات عبر `loadPrayerTimes` القديم حتى المرحلة 4.
 
 ---
 
@@ -92,22 +99,16 @@ npx react-native run-ios      # أو افتح ios/AlarmApp.xcworkspace في Xcod
 - بيئة البناء المحلي: `bundle exec pod install` يختار CocoaPods 1.15.2 (`Gemfile` يثبّت `xcodeproj < 1.26`) وعلى Xcode 16.2 يفشل pod sqlite بـ `React-Core.modulemap not found`. الحل: `/usr/local/bin/pod install` (1.16.2). على CI لا تظهر المشكلة (Xcode 26). `pod install` يعدّل `project.pbxproj` شكلياً — لا تلتزم به.
 - CI: runners الـ macOS تتأخر أحياناً حتى تُلغى المهمة بـ `The job was not acquired by Runner` — ليس خللاً بالكود؛ أعد تشغيل المهمة. و`cancel-in-progress` يلغي تشغيل الـ commit السابق عند push جديد.
 
-**الخطوة التالية:** المرحلة 3أ (القسم 7). `react-native-sqlite-storage` يبقى للهجرة.
+**الخطوة التالية:** المرحلة 3ب (Android أصلي، القسم 7). `react-native-sqlite-storage` يبقى للهجرة.
 
 ---
 
-## 7. المرحلة 3 (التصميم الذي اتُّفق عليه، لم يُكتب منه كود)
+## 7. المرحلة 3
 
-قسّمها إلى commits:
+**3أ — ✅ منفَّذة** (ربط المنطق الجديد بالجدولة، القسم 3). تحقق على المحاكي: الترحيل أزال 61 إشعاراً قديماً وجدول 59 (57+2)؛ إعادة الإقلاع بلا أي Add/Remove؛ إضافة منبه للفجر أضافت وألغت 12 فقط (النافذة تنزاح)، وحذفه ملأ الفراغ؛ التغطية تنكمش وتتسع بما يطابق الحساب.
+اختبارات Jest الأربعة المطلوبة موجودة: `__tests__/window.test.js` (57+2+5≤64، امتلاء احتياطي الغفوة، `coverageUntil` والتذكيران)، `reconciler.test.js` (نفس الـ id بـ offsetMin/صوت مختلف، لا تغيير = صفر استدعاءات)، `format.test.js`، `clsAlarm.test.js`.
 
-**3أ — ربط المنطق الجديد بالجدولة (JS):**
-- أبقِ واجهة `clsAlarm` (`rescheduleAll`, `cancelAlarm(userTimeId)`, `cancelAll`, `clearLegacyScheduled`) حتى لا تتغير الشاشات قبل المرحلة 4؛ نفّذها فوق `src/core`. المستهلكون: `App.tsx`، `src/components/AlarmList.js`، `src/components/PrayerScreen.js` (الأخير يستخدم `loadPrayerTimes` القديم للعرض — يُستبدل في المرحلة 4).
-- المنبهات مؤقتاً من `user_times` عبر `fromLegacyUserTime` (المرحلة 4 تضيف مستودع منبهات جديد وواجهة).
-- نافذة iOS: `64 = 57 منبه + 2 تذكير (قبل الانتهاء بـ24 ساعة + عند الانتهاء) + 5 احتياطي غفوة`؛ إن وُجدت غفوات معلقة أكثر من 5 تُنقص النافذة بالفارق. Android حتى 450.
-- diff بالـ id + fingerprint (نفس id وبصمة مختلفة = إلغاء + إعادة). خريطة المجدول في MMKV؛ على iOS نظّفها مقابل `getPendingIds()` (ما أُطلق أو أسقطه النظام).
-- `coverageUntil` = آخر منبه مجدول فعلاً؛ اعرضه في الرئيسية: "المنبهات مجدولة حتى الخميس 12 نوفمبر (6 أيام)"، بلون تحذيري عند < يومين.
-- أول تشغيل: نظّف الجدولة القديمة (notifee ids `alarm-*` و `renew-reminder`، و `AlarmModule.cancelAll()` على Android).
-- اختبارات Jest المطلوبة صراحة من المستخدم: 57+2+5 ≤ 64، تغيّر offsetMin/الصوت لنفس id، امتلاء احتياطي الغفوة، `coverageUntil` وتوقيت التذكيرين.
+قسّم الباقي إلى commits:
 
 **3ب — Android أصلي:** extras (soundId, style, snoozeMin, maxSnooze, snoozeCount) في `AlarmScheduler`؛ `SnoozeReceiver` أصلي؛ زر غفوة في `AlarmActivity`؛ صوت من `res/raw` بـ USAGE_ALARM؛ قناة لكل صوت؛ فحص `canUseFullScreenIntent()` قبل كل رنين مع fallback لإشعار IMPORTANCE_HIGH/category ALARM بأزرار؛ دوال أذونات/بطارية/autostart/preview في `AlarmModule`؛ إزالة فتح الإعدادات التلقائي من `MainActivity`.
 
