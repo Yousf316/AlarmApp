@@ -17,8 +17,10 @@ export const requestPermission = async () =>
 
 /**
  * @param {{id:string, fireAt:number, title:string, body?:string, sound?:string,
- *          snoozeMinutes?:number, maxSnooze?:number, snoozeCount?:number}} item
- *   maxSnooze 0 = unlimited, snoozeMinutes 0 = no snooze button.
+ *          snoozeMinutes?:number, maxSnooze?:number, snoozeCount?:number,
+ *          plain?:boolean}} item
+ *   maxSnooze 0 = unlimited, snoozeMinutes 0 = no snooze button,
+ *   plain = a reminder: no buttons, not time sensitive.
  */
 export const schedule = async item => (native ? native.schedule(item) : false);
 
@@ -27,6 +29,16 @@ export const cancel = async ids =>
 
 export const cancelAll = async (includeSnoozes = false) =>
   native ? native.cancelAll(includeSnoozes) : 0;
+
+/**
+ * Cancels pending notifications that are not ours: alarms left behind by the
+ * Notifee-based versions of the app. Resolves with how many were removed.
+ */
+export const cancelLegacy = async () => (native ? native.cancelLegacy() : 0);
+
+/** Clears every notification of the app from the notification centre. */
+export const clearDelivered = async () =>
+  native ? native.clearDelivered() : false;
 
 export const getPendingIds = async () => (native ? native.getPendingIds() : []);
 

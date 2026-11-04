@@ -1,6 +1,5 @@
 import {Platform, NativeModules} from 'react-native';
-import {TriggerType} from '@notifee/react-native';
-import notifee from './notifeeGuard';
+import * as prayerAlarm from '../core/alarms/prayerAlarmNative';
 import {
   addAlarm,
   deleteAllAlarms,
@@ -15,11 +14,7 @@ import {getLocation} from '../../database/settingsService';
 import {calculateAlarmTimestamp, formatDuration} from './TimeCalculate';
 import clsUtility from './clsUtilty';
 import {loadPrayerTimes} from './prayerData';
-import {
-  ALARM_CATEGORY_ID,
-  ALARM_SOUND_IOS,
-  SNOOZE_ID_PREFIX,
-} from './NotificationManager';
+import {ALARM_SOUND_IOS, LEGACY_SNOOZE_MINUTES} from './NotificationManager';
 
 const {AlarmModule} = NativeModules;
 
@@ -61,19 +56,15 @@ const scheduleNative = async (alarmId, timestamp, label) => {
     await AlarmModule.setAlarm(alarmId, timestamp, label);
     return;
   }
-  await notifee.createTriggerNotification(
-    {
-      id: alarmNotificationId(alarmId),
-      title: `⏰ ${label}`,
-      body: 'المنبه يرن',
-      ios: {
-        sound: ALARM_SOUND_IOS,
-        categoryId: ALARM_CATEGORY_ID,
-        foregroundPresentationOptions: {sound: true, banner: true, list: true},
-      },
-    },
-    {type: TriggerType.TIMESTAMP, timestamp},
-  );
+  await prayerAlarm.schedule({
+    id: alarmNotificationId(alarmId),
+    fireAt: timestamp,
+    title: `⏰ ${label}`,
+    body: 'المنبه يرن',
+    sound: ALARM_SOUND_IOS,
+    snoozeMinutes: LEGACY_SNOOZE_MINUTES,
+    maxSnooze: 0,
+  });
 };
 
 const cancelNative = async alarmId => {
@@ -81,27 +72,24 @@ const cancelNative = async alarmId => {
     await AlarmModule.cancelAlarm(alarmId);
     return;
   }
-  const id = alarmNotificationId(alarmId);
-  await notifee.cancelTriggerNotification(id);
-  await notifee.cancelDisplayedNotification(id);
+  // Removes the pending request and anything already delivered.
+  await prayerAlarm.cancel([alarmNotificationId(alarmId)]);
 };
 
-/** Cancel every alarm this app scheduled (keeps user-initiated snoozes). */
+/**
+ * Cancel every alarm this app scheduled, including the renew reminder (keeps
+ * snoozes the user asked for on iOS).
+ */
 const cancelAllNative = async () => {
   if (Platform.OS === 'android') {
     await AlarmModule.cancelAll();
-  } else {
-    const ids = await notifee.getTriggerNotificationIds();
-    const toCancel = ids.filter(id => !id.startsWith(SNOOZE_ID_PREFIX));
-    if (toCancel.length) {
-      await notifee.cancelTriggerNotifications(toCancel);
-    }
-  }
-  if (Platform.OS === 'android') {
     await AlarmModule.cancelReminder(ANDROID_RENEW_REMINDER_ID);
-  } else {
-    await notifee.cancelTriggerNotification(RENEW_NOTIFICATION_ID);
+    return;
   }
+  // Alarms left by the Notifee-based versions have different ids and would
+  // ring next to the new ones, so drop them first.
+  await prayerAlarm.cancelLegacy();
+  await prayerAlarm.cancelAll(false);
 };
 
 const RENEW_TITLE = 'افتح التطبيق لتجديد المنبهات';
@@ -118,15 +106,13 @@ const scheduleRenewReminder = async timestamp => {
     );
     return;
   }
-  await notifee.createTriggerNotification(
-    {
-      id: RENEW_NOTIFICATION_ID,
-      title: RENEW_TITLE,
-      body: RENEW_BODY,
-      ios: {sound: 'default'},
-    },
-    {type: TriggerType.TIMESTAMP, timestamp},
-  );
+  await prayerAlarm.schedule({
+    id: RENEW_NOTIFICATION_ID,
+    fireAt: timestamp,
+    title: RENEW_TITLE,
+    body: RENEW_BODY,
+    plain: true,
+  });
 };
 
 // ───────────────────────────────
@@ -248,7 +234,7 @@ class clsAlarm {
     return serialize(async () => {
       await cancelAllNative();
       if (Platform.OS === 'ios') {
-        await notifee.cancelDisplayedNotifications();
+        await prayerAlarm.clearDelivered();
       }
       await deleteAllUserTimes();
       lastReschedule = null;
@@ -259,7 +245,8 @@ class clsAlarm {
   static clearLegacyScheduled() {
     return serialize(async () => {
       if (Platform.OS === 'ios') {
-        await notifee.cancelTriggerNotifications();
+        await prayerAlarm.cancelLegacy();
+        await prayerAlarm.cancelAll(true);
       } else {
         await AlarmModule.cancelAll();
       }

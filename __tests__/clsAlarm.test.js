@@ -1,6 +1,7 @@
 /* eslint-env jest */
 import {NativeModules, Platform} from 'react-native';
-import notifee from '@notifee/react-native';
+
+const native = NativeModules.PrayerAlarmModule;
 
 const mockDb = {alarms: [], nextId: 1, userTimes: []};
 
@@ -100,6 +101,8 @@ describe('clsAlarm on iOS', () => {
     Platform.OS = 'ios';
   });
 
+  const scheduled = () => native.schedule.mock.calls.map(([item]) => item);
+
   it('gives every prayer its own notification id (bug: same-day prayers overwrote each other)', async () => {
     mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: PRAYERS}];
     mockDays = makeDays(1);
@@ -107,11 +110,51 @@ describe('clsAlarm on iOS', () => {
     const result = await clsAlarm.rescheduleAll();
 
     expect(result).toEqual({ok: true, scheduled: 5, fromCache: false});
-    const ids = notifee.createTriggerNotification.mock.calls
-      .map(([n]) => n.id)
+    const ids = scheduled()
+      .map(n => n.id)
       .filter(id => id.startsWith('alarm-'));
     expect(ids).toHaveLength(5);
     expect(new Set(ids).size).toBe(5);
+  });
+
+  it('schedules alarms natively with the 5-minute unlimited snooze the old build had', async () => {
+    mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: ['Fajr']}];
+    mockDays = makeDays(1);
+
+    await clsAlarm.rescheduleAll();
+
+    const alarm = scheduled().find(n => n.id.startsWith('alarm-'));
+    expect(alarm.fireAt).toBe(mockDays[0].timestamps.Fajr - 10 * 60 * 1000);
+    expect(alarm.title).toBe('⏰ قبل الفجر بـ 00:10');
+    expect(alarm.snoozeMinutes).toBe(5);
+    expect(alarm.maxSnooze).toBe(0);
+  });
+
+  it('drops alarms left by the Notifee versions before scheduling, keeping user snoozes', async () => {
+    mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: ['Fajr']}];
+
+    await clsAlarm.rescheduleAll();
+
+    expect(native.cancelLegacy).toHaveBeenCalledTimes(1);
+    expect(native.cancelAll).toHaveBeenCalledWith(false);
+    expect(native.cancelLegacy.mock.invocationCallOrder[0]).toBeLessThan(
+      native.schedule.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('schedules the renew reminder as a plain notification one minute after the last alarm', async () => {
+    mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: ['Fajr']}];
+    mockDays = makeDays(2);
+
+    await clsAlarm.rescheduleAll();
+
+    const items = scheduled();
+    const lastAlarm = Math.max(
+      ...items.filter(n => n.id.startsWith('alarm-')).map(n => n.fireAt),
+    );
+    const reminder = items.find(n => n.id === 'renew-reminder');
+    expect(reminder.plain).toBe(true);
+    expect(reminder.fireAt).toBe(lastAlarm + 60 * 1000);
   });
 
   it('cancels with the same id it scheduled with, then deletes from DB', async () => {
@@ -122,7 +165,7 @@ describe('clsAlarm on iOS', () => {
 
     await clsAlarm.cancelAlarm(7);
 
-    const cancelled = notifee.cancelTriggerNotification.mock.calls.map(([id]) => id);
+    const cancelled = native.cancel.mock.calls.flatMap(([ids]) => ids);
     expect(cancelled).toEqual(expect.arrayContaining(scheduledIds));
     expect(mockDb.userTimes).toHaveLength(0);
   });
@@ -130,7 +173,7 @@ describe('clsAlarm on iOS', () => {
   it('keeps the DB row when cancelling fails (bug: orphaned alarms kept ringing)', async () => {
     mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: ['Fajr']}];
     await clsAlarm.rescheduleAll();
-    notifee.cancelTriggerNotification.mockRejectedValueOnce(new Error('boom'));
+    native.cancel.mockRejectedValueOnce(new Error('boom'));
 
     await expect(clsAlarm.cancelAlarm(7)).rejects.toThrow('boom');
     expect(mockDb.userTimes).toHaveLength(1);
@@ -143,7 +186,25 @@ describe('clsAlarm on iOS', () => {
     const result = await clsAlarm.rescheduleAll();
 
     expect(result.ok).toBe(false);
-    expect(notifee.cancelTriggerNotifications).not.toHaveBeenCalled();
+    expect(native.cancelAll).not.toHaveBeenCalled();
+    expect(native.cancelLegacy).not.toHaveBeenCalled();
+  });
+
+  it('cancelAll also clears the delivered notifications', async () => {
+    mockDb.userTimes = [{id: 7, hour: 0, minute: 10, prayers: ['Fajr']}];
+
+    await clsAlarm.cancelAll();
+
+    expect(native.cancelAll).toHaveBeenCalledWith(false);
+    expect(native.clearDelivered).toHaveBeenCalledTimes(1);
+    expect(mockDb.userTimes).toHaveLength(0);
+  });
+
+  it('clearLegacyScheduled removes everything, snoozes included', async () => {
+    await clsAlarm.clearLegacyScheduled();
+
+    expect(native.cancelLegacy).toHaveBeenCalledTimes(1);
+    expect(native.cancelAll).toHaveBeenCalledWith(true);
   });
 });
 
@@ -178,15 +239,14 @@ describe('clsAlarm on Android', () => {
     expect(id).toBe(1);
     expect(timestamp).toBe(lastAlarm + 60 * 1000);
     expect(title).toBe('افتح التطبيق لتجديد المنبهات');
-    expect(notifee.createTriggerNotification).not.toHaveBeenCalled();
-    expect(notifee.createChannel).not.toHaveBeenCalled();
+    expect(native.schedule).not.toHaveBeenCalled();
   });
 
   it('cancels the old renew reminder before rescheduling', async () => {
     mockDb.userTimes = [{id: 3, hour: 1, minute: 0, prayers: ['Dhuhr']}];
     await clsAlarm.rescheduleAll();
     expect(NativeModules.AlarmModule.cancelReminder).toHaveBeenCalledWith(1);
-    expect(notifee.cancelTriggerNotification).not.toHaveBeenCalled();
+    expect(native.cancelAll).not.toHaveBeenCalled();
   });
 
   it('skips an automatic reschedule when nothing changed', async () => {

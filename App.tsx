@@ -1,15 +1,10 @@
 import React, {useEffect} from 'react';
 import {AppState} from 'react-native';
-import notifee from './src/librarys/notifeeGuard';
 import {NavigationContainer} from '@react-navigation/native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import {PrayerProvider} from './src/context/PrayerContext';
-import {
-  handleNotificationEvent,
-  requestNotificationPermission,
-  setupNotificationCategories,
-} from './src/librarys/NotificationManager';
+import {requestNotificationPermission} from './src/librarys/NotificationManager';
 import {initDB} from './database/db';
 import clsAlarm from './src/librarys/clsAlaram';
 
@@ -18,7 +13,6 @@ const App = () => {
     const bootstrap = async () => {
       try {
         await requestNotificationPermission();
-        await setupNotificationCategories();
         const {migratedFromLegacy} = await initDB();
         if (migratedFromLegacy) {
           await clsAlarm.clearLegacyScheduled();
@@ -31,7 +25,6 @@ const App = () => {
     };
     bootstrap();
 
-    const unsubscribeNotifee = notifee.onForegroundEvent(handleNotificationEvent);
     const appStateSub = AppState.addEventListener('change', state => {
       if (state === 'active') {
         initDB()
@@ -41,7 +34,6 @@ const App = () => {
     });
 
     return () => {
-      unsubscribeNotifee();
       appStateSub.remove();
     };
   }, []);

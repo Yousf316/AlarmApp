@@ -140,16 +140,22 @@ final class PrayerAlarmCenter: NSObject, UNUserNotificationCenterDelegate {
     sound: String?,
     snoozeMinutes: Int,
     maxSnooze: Int,
-    snoozeCount: Int
+    snoozeCount: Int,
+    plain: Bool = false
   ) -> UNMutableNotificationContent {
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = body
     content.sound = makeSound(sound)
-    content.interruptionLevel = .timeSensitive
     content.threadIdentifier = kThreadId
-    let canSnooze = snoozeMinutes > 0 && (maxSnooze == 0 || snoozeCount < maxSnooze)
-    content.categoryIdentifier = canSnooze ? snoozeCategoryId(snoozeMinutes) : kNoSnoozeCategory
+    if plain {
+      // A reminder, not an alarm: no Snooze/Stop buttons, not time sensitive.
+      content.interruptionLevel = .active
+    } else {
+      content.interruptionLevel = .timeSensitive
+      let canSnooze = snoozeMinutes > 0 && (maxSnooze == 0 || snoozeCount < maxSnooze)
+      content.categoryIdentifier = canSnooze ? snoozeCategoryId(snoozeMinutes) : kNoSnoozeCategory
+    }
     content.userInfo = [
       kPrayerFlag: true,
       "snoozeMinutes": snoozeMinutes,
@@ -333,7 +339,8 @@ final class PrayerAlarmModule: NSObject {
       sound: item["sound"] as? String,
       snoozeMinutes: (item["snoozeMinutes"] as? NSNumber)?.intValue ?? 0,
       maxSnooze: (item["maxSnooze"] as? NSNumber)?.intValue ?? 0,
-      snoozeCount: (item["snoozeCount"] as? NSNumber)?.intValue ?? 0
+      snoozeCount: (item["snoozeCount"] as? NSNumber)?.intValue ?? 0,
+      plain: (item["plain"] as? NSNumber)?.boolValue ?? false
     )
     let request = UNNotificationRequest(
       identifier: id,
@@ -379,6 +386,34 @@ final class PrayerAlarmModule: NSObject {
       center.removePendingNotificationRequests(withIdentifiers: ids)
       resolve(ids.count)
     }
+  }
+
+  /// Cancels pending requests that were NOT scheduled by this module: the
+  /// alarms the Notifee-based versions of the app left behind. Without this
+  /// they would ring next to the new ones after an update.
+  @objc(cancelLegacy:rejecter:)
+  func cancelLegacy(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let center = UNUserNotificationCenter.current()
+    center.getPendingNotificationRequests { requests in
+      let ids = requests
+        .filter { !isOurs($0.content.userInfo) }
+        .map { $0.identifier }
+      center.removePendingNotificationRequests(withIdentifiers: ids)
+      resolve(ids.count)
+    }
+  }
+
+  /// Removes every notification of this app from the notification centre.
+  @objc(clearDelivered:rejecter:)
+  func clearDelivered(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    resolve(true)
   }
 
   @objc(getPendingIds:rejecter:)

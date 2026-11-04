@@ -48,6 +48,8 @@ NativeModules.PrayerAlarmModule = {
   schedule: jest.fn(() => Promise.resolve(true)),
   cancel: jest.fn(() => Promise.resolve(true)),
   cancelAll: jest.fn(() => Promise.resolve(0)),
+  cancelLegacy: jest.fn(() => Promise.resolve(0)),
+  clearDelivered: jest.fn(() => Promise.resolve(true)),
   getPendingIds: jest.fn(() => Promise.resolve([])),
   reassertDelegate: jest.fn(() => Promise.resolve(false)),
 };
