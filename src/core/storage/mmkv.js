@@ -1,7 +1,11 @@
-import {createMMKV} from 'react-native-mmkv';
+import {MMKV} from 'react-native-mmkv';
 
-/** Single app-wide key/value store (synchronous, JSI-backed). */
-export const storage = createMMKV({id: 'prayer-alarms'});
+/**
+ * Single app-wide key/value store (synchronous, JSI-backed).
+ * MMKV v3 (TurboModule): v4 depends on Nitro, whose Swift/C++ interop cannot
+ * import RN 0.78's glog headers on iOS.
+ */
+export const storage = new MMKV({id: 'prayer-alarms'});
 
 export const getJSON = (key, fallback = null) => {
   const raw = storage.getString(key);
