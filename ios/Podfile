@@ -31,5 +31,17 @@ target 'AlarmApp' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # RN 0.78 ships fmt 11.0.2, whose consteval format-string checks do not
+    # compile with the Clang in Xcode 26. Turn them off for that pod only.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+        defs = [defs] if defs.is_a?(String)
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs + ['FMT_USE_CONSTEVAL=0']
+      end
+    end
   end
 end
