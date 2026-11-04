@@ -75,4 +75,15 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            build | tee xcodebuild.log | tail -n 40
+            build 2>&1 | tee xcodebuild.log | tail -n 40
+      - name: Surface build errors
+        if: failure()
+        working-directory: ios
+        run: |
+          grep -E "error:|fatal error|ld: " xcodebuild.log | sort -u | head -20 | cut -c1-500 | while IFS= read -r line; do echo "::error::${line}"; done
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ios/xcodebuild.log
