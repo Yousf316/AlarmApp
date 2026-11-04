@@ -42,13 +42,6 @@ export const clearDelivered = async () =>
 
 export const getPendingIds = async () => (native ? native.getPendingIds() : []);
 
-/**
- * TEMPORARY (until Notifee is removed): Notifee may take over the notification
- * delegate; this gives it back to us. Resolves true if it had to be re-asserted.
- */
-export const reassertDelegate = async () =>
-  native ? native.reassertDelegate() : false;
-
 /** Fires a real alarm notification `seconds` from now (1-minute snooze, max 2). */
 export const scheduleTestAlarm = (seconds = 10) =>
   schedule({

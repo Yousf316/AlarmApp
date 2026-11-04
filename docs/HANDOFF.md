@@ -1,7 +1,7 @@
 # تقرير تسليم: منبه الصلاة v2 (للمتابعة على macOS)
 
 > **إلى Claude على الماك:** هذا التقرير يكفي لتكمل العمل. اقرأه كاملاً، ثم `docs/PLAN.md` (الخطة المعتمدة من المستخدم). المستخدم يكتب بالعربية؛ أجبه بالعربية.
-> آخر تحديث: 2026-11-04 — الفرع `feature/prayer-alarms-v2` عند `de5cb14` (+ commit هذا التقرير).
+> آخر تحديث: 2026-11-04 (مساءً، على الماك) — الفرع `feature/prayer-alarms-v2`. **1·3أ مُتحقَّق منها على محاكي iOS و1·3ب (حذف notifee) منفَّذة**؛ انظر القسم 6.
 
 ---
 
@@ -54,16 +54,18 @@ npx react-native run-ios      # أو افتح ios/AlarmApp.xcworkspace في Xcod
 - `src/core/time/zone.js` — مفاتيح الأيام بمنطقة **المدينة** (Luxon)، لا منطقة الجهاز.
 - `src/core/prayer/` — `methods.js` (أم القرى افتراضياً ↔ Aladhan id ↔ adhan)، `aladhan.js` (جلب سنة كاملة `annual=true&iso8601=true`)، `localCalc.js` (adhan)، `cities.js` (إحداثيات مدمجة)، `timetableRepo.js` (`getTimetable`/`needsRefresh`/`coverageDays`).
 - `src/core/alarms/` — `model.js` (`normalizeAlarm`, `fromLegacyUserTime`)، `planner.js` (`planOccurrences`, ids حتمية، `fingerprint`، `nid` لـ Android)، `prayerAlarmNative.js` (غلاف JS لـ Swift module).
-- `src/librarys/notifeeGuard.js` — **مؤقت**: Proxy حول notifee يستدعي `reassertDelegate()` بعد كل استدعاء.
-- `ios/AlarmApp/PrayerAlarmModule.swift` + `.m` + `AlarmApp.entitlements` (Time Sensitive)، و `AppDelegate.swift` (يستدعي `PrayerAlarmCenter.shared.install()` قبل `super`).
-- التطبيق الحالي ما زال يجدول عبر `src/librarys/clsAlaram.js` (notifee على iOS، `AlarmModule` Kotlin على Android) بنموذج `user_times` القديم.
+- `ios/AlarmApp/PrayerAlarmModule.swift` + `.m` + `AlarmApp.entitlements` (Time Sensitive)، و `AppDelegate.swift` (يستدعي `PrayerAlarmCenter.shared.install()` قبل `super`). الدوال: `getPermissionStatus/requestPermission/schedule({plain})/cancel/cancelAll/cancelLegacy/clearDelivered/getPendingIds`.
+- Android: `AlarmModule.kt` (`setAlarm/cancelAlarm/cancelAll/scheduleReminder/cancelReminder/canScheduleExactAlarms`) + `ReminderReceiver.kt` لتذكير التجديد (كان notifee).
+- التطبيق الحالي ما زال يجدول عبر `src/librarys/clsAlaram.js` بنموذج `user_times` القديم، لكن **عبر الكود الأصلي فقط**: `PrayerAlarmModule` على iOS و`AlarmModule` على Android. لا notifee في أي مكان.
 
 ---
 
 ## 4. قرارات وانحرافات عن الخطة (مهمة)
 
-1. **مكتبة الإشعارات:** Notifee أُرشف (أبريل 2026). القرار المعتمد: **Swift module خاص** (`PrayerAlarmModule`) بدل `react-native-notify-kit`، و Kotlin الحالي على Android. notifee يبقى مؤقتاً حتى 1·3ب.
-2. **ملكية الـ delegate (شرط المستخدم):** `PrayerAlarmCenter` هو المالك الوحيد لـ `UNUserNotificationCenter.delegate`، يُعيَّن في `didFinishLaunching` قبل JS، ويُعاد تأكيده (re-assert مع log تحذيري) عند كل `didBecomeActive` وبعد كل استدعاء notifee من JS. الإشعارات غير الخاصة بنا (`userInfo.prayerAlarm != true`) تُمرَّر لـ delegate الخاص بـ notifee. **مؤقت حتى 1·3ب.**
+1. **مكتبة الإشعارات:** Notifee أُرشف (أبريل 2026) فحُذف بالكامل (1·3ب). القرار: **Swift module خاص** (`PrayerAlarmModule`) على iOS و Kotlin على Android. إذن الإشعارات: iOS عبر `PrayerAlarmModule.requestPermission`، و Android 13+ عبر `PermissionsAndroid` (حُذف الطلب الأصلي والـ Toast من `MainActivity`).
+2. **ملكية الـ delegate:** `PrayerAlarmCenter` هو المالك الوحيد لـ `UNUserNotificationCenter.delegate`، يُعيَّن في `didFinishLaunching` قبل JS. حُذفت حلول notifee المؤقتة (re-assert، `ensureCategories`، التمرير لـ legacy delegate، `notifeeGuard.js`).
+   - **ترحيل المنبهات القديمة:** منبهات notifee المعلقة لها ids مختلفة، فيزيلها `cancelLegacy()` (كل معلّق ليس عليه `prayerAlarm=true`) عند أول `rescheduleAll`. تحقق على المحاكي: 61 طلباً قديماً أُزيلت وجُدول 61 أصلياً بلا تراكم عند إعادة التشغيل.
+   - **تذكير التجديد:** iOS إشعار `plain` (بلا أزرار، `.active`)، و Android `AlarmModule.scheduleReminder` (AlarmManager غير exact، يُستعاد بعد الإقلاع).
 3. **أزرار الغفوة/الإيقاف** بلا `.foreground`؛ الغفوة تُجدول **أصلياً** في Swift بعدّاد في `userInfo` (`maxSnooze 0` = بلا حد، `snoozeMinutes 0` = بلا زر). categories: `alarm.snooze.1…60` و `alarm.nosnooze`، تُدمج مع categories الموجودة.
 4. **MMKV v3 بدل v4:** v4 يعتمد على `react-native-nitro-modules` الذي لا يُبنى على iOS مع RN 0.78 (`import of module 'glog.glog.log_severity' appears within namespace 'google'`). v3 = TurboModule بنفس المحرك. الـ API: `new MMKV({id})`.
 5. **`react-native-sqlite-storage` لم يُحذف:** الهجرة تحتاجه لقراءة القاعدة القديمة. احذفه لاحقاً (مثلاً مع 1·3ب) بعد فترة كافية.
@@ -75,24 +77,22 @@ npx react-native run-ios      # أو افتح ios/AlarmApp.xcworkspace في Xcod
 
 ## 5. ما لم يُتحقق منه بعد
 
-- **وقت التشغيل على أي منصة** (لم يُشغَّل التطبيق إطلاقاً بعد التعديلات).
-- سلوك `PrayerAlarmModule` فعلياً: الإشعار، الغفوة والتطبيق مقتول، re-assert مع notifee.
-- نداء Aladhan الحقيقي بصيغة `annual=true` (مكتوب حسب التوثيق ومختبر ببيانات مصنوعة فقط؛ fallback المحلي يغطي أي اختلاف).
+- **Android وقت التشغيل:** لا يوجد Android SDK/Java/محاكي على الماك. CI يبني `assembleDebug` فقط. تذكير التجديد (`ReminderReceiver`) وطلب `POST_NOTIFICATIONS` من JS لم يُجرَّبا فعلياً؛ يلزم جهاز أو محاكي.
+- نداء Aladhan الحقيقي بصيغة `annual=true` (fallback المحلي يغطي أي اختلاف).
 - هجرة SQLite → MMKV على بيانات حقيقية.
+- الصوت والوضع الصامت وFocus وAlarmKit (جهاز حقيقي — TestFlight، المرحلة 7). الصوت الحالي الافتراضي لأن `radar.caf` غير موجود.
 
----
+## 6. حالة التحقق ودروس 1·3أ/1·3ب (محاكي iOS 18.3، Xcode 16.2)
 
-## 6. الخطوة التالية مباشرة: التحقق من 1·3أ على محاكي iOS
+- ✅ الإشعار يصل والتطبيق مقتول، وأزرار الغفوة/الإيقاف تعمل (تجربة المستخدم)، والغفوة أصلية.
+- ✅ **خلل وُجد وأُصلح (`06a13e8`):** `notifee.setNotificationCategories` يستبدل كل الفئات فتختفي الأزرار. زال بحذف notifee.
+- ✅ بعد 1·3ب: لا تحذير delegate، ولا `Setting 1 notification categories`، والترحيل من منبهات notifee يعمل (أعلاه).
+- ⚠️ أدوات التحكم بالمحاكي من هنا: لا `idb`. نقر بأحداث CGEvent (يحتاج منح Terminal صلاحية Accessibility)؛ الضغط المطوّل على الإشعار لا يعمل بالمحاكاة، فاختبار الأزرار يدوي.
+- ⚠️ الواجهة تتحول إلى RTL **بعد أول إقلاع** (تبدّل التبويبات)؛ انتبه عند كتابة اختبارات E2E.
+- بيئة البناء المحلي: `bundle exec pod install` يختار CocoaPods 1.15.2 (`Gemfile` يثبّت `xcodeproj < 1.26`) وعلى Xcode 16.2 يفشل pod sqlite بـ `React-Core.modulemap not found`. الحل: `/usr/local/bin/pod install` (1.16.2). على CI لا تظهر المشكلة (Xcode 26). `pod install` يعدّل `project.pbxproj` شكلياً — لا تلتزم به.
+- CI: runners الـ macOS تتأخر أحياناً حتى تُلغى المهمة بـ `The job was not acquired by Runner` — ليس خللاً بالكود؛ أعد تشغيل المهمة. و`cancel-in-progress` يلغي تشغيل الـ commit السابق عند push جديد.
 
-1. شغّل على المحاكي، اسمح بالإشعارات، اضغط "منبه تجريبي بعد 10 ثوانٍ"، ثم **أغلق التطبيق تماماً** (swipe up من App Switcher).
-2. عند ظهور الإشعار: اضغط مطولاً → يجب أن يظهر "غفوة 1 د" و"إيقاف".
-3. "غفوة" → يجب أن يعود الإشعار بعد دقيقة **دون فتح التطبيق**، مرتين كحد أقصى (`maxSnooze: 2`)، ثم بزر "إيقاف" فقط.
-4. افحص Console.app (أو `xcrun simctl spawn booted log stream --predicate 'eventMessage CONTAINS "PrayerAlarm"'`) لرسائل `[PrayerAlarm] WARNING: notification delegate was replaced` — ظهورها متوقع عند استدعاءات notifee، والمهم أن الغفوة تعمل بعدها.
-5. تأكد أن منبهات notifee القديمة (التي يضيفها التطبيق من "إضافة منبه") ما زالت تظهر وتعمل أزرارها.
-
-> المحاكي يعرض الإشعارات المحلية والأزرار؛ لكن الصوت/الوضع الصامت/Focus/AlarmKit تحتاج جهازاً حقيقياً (TestFlight — المرحلة 7).
-
-إن نجح كل ذلك → **1·3ب**: حذف notifee بالكامل، وحذف `notifeeGuard.js` و re-assert والتمرير لـ legacy delegate، و POST_NOTIFICATIONS بـ `PermissionsAndroid`، وحذف repo الـ maven الخاص بـ notifee من `android/build.gradle`.
+**الخطوة التالية:** المرحلة 3أ (القسم 7). `react-native-sqlite-storage` يبقى للهجرة.
 
 ---
 

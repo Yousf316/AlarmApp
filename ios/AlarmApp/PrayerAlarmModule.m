@@ -29,7 +29,4 @@ RCT_EXTERN_METHOD(clearDelivered:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(getPendingIds:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(reassertDelegate:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
-
 @end

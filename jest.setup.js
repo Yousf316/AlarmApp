@@ -1,8 +1,6 @@
 /* eslint-env jest */
 import {NativeModules} from 'react-native';
 
-jest.mock('@notifee/react-native', () => require('@notifee/react-native/jest-mock'));
-
 jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
@@ -51,5 +49,4 @@ NativeModules.PrayerAlarmModule = {
   cancelLegacy: jest.fn(() => Promise.resolve(0)),
   clearDelivered: jest.fn(() => Promise.resolve(true)),
   getPendingIds: jest.fn(() => Promise.resolve([])),
-  reassertDelegate: jest.fn(() => Promise.resolve(false)),
 };

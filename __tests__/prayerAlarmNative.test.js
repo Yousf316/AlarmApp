@@ -1,9 +1,9 @@
 /* eslint-env jest */
 import {NativeModules} from 'react-native';
-import notifee from '../src/librarys/notifeeGuard';
-import rawNotifee from '@notifee/react-native';
 import {
   cancel,
+  cancelLegacy,
+  clearDelivered,
   isAvailable,
   scheduleTestAlarm,
 } from '../src/core/alarms/prayerAlarmNative';
@@ -34,30 +34,11 @@ describe('prayerAlarmNative', () => {
   });
 });
 
-describe('notifeeGuard (temporary delegate re-assert)', () => {
-  it('forwards calls to notifee and re-asserts the delegate afterwards', async () => {
-    rawNotifee.cancelTriggerNotification.mockResolvedValueOnce('done');
-    await expect(notifee.cancelTriggerNotification('x')).resolves.toBe('done');
-    expect(rawNotifee.cancelTriggerNotification).toHaveBeenCalledWith('x');
-    expect(native.reassertDelegate).toHaveBeenCalledTimes(1);
-  });
-
-  it('re-asserts and rethrows when the notifee call fails', async () => {
-    rawNotifee.cancelTriggerNotification.mockRejectedValueOnce(new Error('nope'));
-    await expect(notifee.cancelTriggerNotification('x')).rejects.toThrow('nope');
-    expect(native.reassertDelegate).toHaveBeenCalledTimes(1);
-  });
-
-  it('re-asserts after synchronous notifee calls (event subscriptions)', () => {
-    const unsubscribe = jest.fn();
-    rawNotifee.onForegroundEvent.mockReturnValueOnce(unsubscribe);
-    expect(notifee.onForegroundEvent(() => {})).toBe(unsubscribe);
-    expect(native.reassertDelegate).toHaveBeenCalledTimes(1);
-  });
-
-  it('never breaks the notifee call if re-assert rejects', async () => {
-    native.reassertDelegate.mockRejectedValueOnce(new Error('native down'));
-    rawNotifee.cancelTriggerNotification.mockResolvedValueOnce('ok');
-    await expect(notifee.cancelTriggerNotification('y')).resolves.toBe('ok');
+describe('legacy cleanup helpers', () => {
+  it('cancelLegacy and clearDelivered go to the native module', async () => {
+    native.cancelLegacy.mockResolvedValueOnce(3);
+    await expect(cancelLegacy()).resolves.toBe(3);
+    await expect(clearDelivered()).resolves.toBe(true);
+    expect(native.clearDelivered).toHaveBeenCalledTimes(1);
   });
 });

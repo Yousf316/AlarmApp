@@ -25,68 +25,20 @@ private func isOurs(_ userInfo: [AnyHashable: Any]) -> Bool {
 /// The single owner of `UNUserNotificationCenter.delegate`.
 ///
 /// Snooze / Stop are handled here, natively, so they work even when the app
-/// was killed and without booting JS. Notifications that are not ours (the
-/// legacy Notifee ones, until Notifee is removed) are forwarded to whichever
-/// delegate Notifee installed.
+/// was killed and without booting JS.
 final class PrayerAlarmCenter: NSObject, UNUserNotificationCenterDelegate {
   static let shared = PrayerAlarmCenter()
 
-  private var legacyDelegate: UNUserNotificationCenterDelegate?
-  private var forwarding = false
   private var installed = false
 
-  /// Call from `application(_:didFinishLaunchingWithOptions:)`, before JS starts.
+  /// Call from `application(_:didFinishLaunchingWithOptions:)`, before JS starts:
+  /// the delegate must exist before launch finishes or action buttons are not
+  /// delivered when the app was killed.
   func install() {
     guard !installed else { return }
     installed = true
-    assertDelegate(reason: "install")
+    UNUserNotificationCenter.current().delegate = self
     registerCategories()
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(appDidBecomeActive),
-      name: UIApplication.didBecomeActiveNotification,
-      object: nil
-    )
-  }
-
-  @objc private func appDidBecomeActive() {
-    assertDelegate(reason: "didBecomeActive")
-    ensureCategories()
-  }
-
-  /// Notifee's `setNotificationCategories` replaces *every* registered
-  /// category, wiping ours without touching the delegate. Re-register ours
-  /// (merge-based, idempotent) whenever the delegate was not the one that
-  /// changed. TEMPORARY: goes away together with Notifee.
-  func ensureCategories() {
-    UNUserNotificationCenter.current().getNotificationCategories { existing in
-      let ids = Set(existing.map { $0.identifier })
-      if !ids.contains(kNoSnoozeCategory) || !ids.contains(snoozeCategoryId(1)) {
-        NSLog("[PrayerAlarm] WARNING: alarm categories were replaced - re-registering")
-        self.registerCategories()
-      }
-    }
-  }
-
-  /// Re-assert ownership if somebody (Notifee) replaced the delegate.
-  /// TEMPORARY: goes away together with Notifee.
-  @discardableResult
-  func assertDelegate(reason: String) -> Bool {
-    let center = UNUserNotificationCenter.current()
-    if center.delegate === self {
-      return false
-    }
-    if let other = center.delegate, other !== self {
-      legacyDelegate = other
-      NSLog(
-        "[PrayerAlarm] WARNING: notification delegate was replaced by %@ (%@) - re-asserting",
-        String(describing: type(of: other)),
-        reason
-      )
-    }
-    center.delegate = self
-    registerCategories()
-    return true
   }
 
   /// Registers our categories while keeping the ones others registered
@@ -208,21 +160,7 @@ final class PrayerAlarmCenter: NSObject, UNUserNotificationCenterDelegate {
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    if isOurs(notification.request.content.userInfo) {
-      completionHandler([.banner, .list, .sound])
-      return
-    }
-    if let legacy = legacyDelegate, !forwarding,
-      legacy.responds(
-        to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:willPresent:withCompletionHandler:)))
-    {
-      forwarding = true
-      legacy.userNotificationCenter?(center, willPresent: notification) { [weak self] options in
-        self?.forwarding = false
-        completionHandler(options)
-      }
-      return
-    }
+    // Alarms must show and sound even while the app is open.
     completionHandler([.banner, .list, .sound])
   }
 
@@ -233,17 +171,6 @@ final class PrayerAlarmCenter: NSObject, UNUserNotificationCenterDelegate {
   ) {
     let notification = response.notification
     guard isOurs(notification.request.content.userInfo) else {
-      if let legacy = legacyDelegate, !forwarding,
-        legacy.responds(
-          to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)))
-      {
-        forwarding = true
-        legacy.userNotificationCenter?(center, didReceive: response) { [weak self] in
-          self?.forwarding = false
-          completionHandler()
-        }
-        return
-      }
       completionHandler()
       return
     }
@@ -428,16 +355,5 @@ final class PrayerAlarmModule: NSObject {
           .map { $0.identifier }
       )
     }
-  }
-
-  /// Resolves true if the delegate had been replaced and was re-asserted.
-  @objc(reassertDelegate:rejecter:)
-  func reassertDelegate(
-    _ resolve: @escaping RCTPromiseResolveBlock,
-    rejecter reject: @escaping RCTPromiseRejectBlock
-  ) {
-    let replaced = PrayerAlarmCenter.shared.assertDelegate(reason: "js")
-    PrayerAlarmCenter.shared.ensureCategories()
-    resolve(replaced)
   }
 }

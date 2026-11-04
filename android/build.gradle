@@ -18,11 +18,4 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        // Notifee ships its native core as a local Maven repo inside node_modules.
-        maven { url("$rootDir/../node_modules/@notifee/react-native/android/libs") }
-    }
-}
-
 apply plugin: "com.facebook.react.rootproject"

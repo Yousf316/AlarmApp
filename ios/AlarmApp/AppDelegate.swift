@@ -21,11 +21,7 @@ class AppDelegate: RCTAppDelegate {
     // boots) or action buttons are not delivered when the app was killed.
     PrayerAlarmCenter.shared.install()
 
-    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-
-    // Re-assert in case anything replaced the delegate during startup.
-    PrayerAlarmCenter.shared.assertDelegate(reason: "didFinishLaunching")
-    return result
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
