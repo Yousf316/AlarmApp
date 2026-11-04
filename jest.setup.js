@@ -34,6 +34,8 @@ NativeModules.AlarmModule = {
   cancelAlarm: jest.fn(() => Promise.resolve(true)),
   cancelAll: jest.fn(() => Promise.resolve(true)),
   canScheduleExactAlarms: jest.fn(() => Promise.resolve(true)),
+  scheduleReminder: jest.fn(() => Promise.resolve(true)),
+  cancelReminder: jest.fn(() => Promise.resolve(true)),
 };
 
 NativeModules.PrayerAlarmModule = {

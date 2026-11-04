@@ -15,6 +15,7 @@ class AlarmScheduler(context: Context) {
     private val context = context.applicationContext
     private val alarmManager = this.context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val prefs = this.context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val reminderPrefs = this.context.getSharedPreferences(REMINDER_PREFS_NAME, Context.MODE_PRIVATE)
 
     fun canScheduleExact(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
@@ -61,8 +62,33 @@ class AlarmScheduler(context: Context) {
         prefs.edit().remove(id.toString()).apply()
     }
 
+    /**
+     * A plain (non-ringing) notification, e.g. "open the app to renew the
+     * alarms". Inexact on purpose: needs no exact-alarm permission.
+     */
+    fun setReminder(id: Int, triggerAtMillis: Long, title: String, body: String) {
+        alarmManager.setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            triggerAtMillis,
+            reminderPendingIntent(id, title, body)
+        )
+        reminderPrefs.edit().putString(id.toString(), "$triggerAtMillis|$title|$body").apply()
+    }
+
+    fun cancelReminder(id: Int) {
+        val operation = reminderPendingIntent(id, null, null)
+        alarmManager.cancel(operation)
+        operation.cancel()
+        reminderPrefs.edit().remove(id.toString()).apply()
+    }
+
+    fun markReminderFired(id: Int) {
+        reminderPrefs.edit().remove(id.toString()).apply()
+    }
+
     /** Re-register every stored future alarm (after boot / time change). */
     fun restoreAll() {
+        restoreReminders()
         val now = System.currentTimeMillis()
         for ((key, value) in prefs.all) {
             val id = key.toIntOrNull() ?: continue
@@ -75,6 +101,35 @@ class AlarmScheduler(context: Context) {
                 prefs.edit().remove(key).apply()
             }
         }
+    }
+
+    private fun restoreReminders() {
+        val now = System.currentTimeMillis()
+        for ((key, value) in reminderPrefs.all) {
+            val id = key.toIntOrNull() ?: continue
+            val parts = (value as? String)?.split("|", limit = 3) ?: continue
+            val triggerAt = parts[0].toLongOrNull() ?: continue
+            if (triggerAt > now) {
+                setReminder(id, triggerAt, parts.getOrElse(1) { "" }, parts.getOrElse(2) { "" })
+            } else {
+                reminderPrefs.edit().remove(key).apply()
+            }
+        }
+    }
+
+    private fun reminderPendingIntent(id: Int, title: String?, body: String?): PendingIntent {
+        val intent = Intent(context, ReminderReceiver::class.java).apply {
+            action = ACTION_REMINDER
+            putExtra(ReminderReceiver.EXTRA_ID, id)
+            title?.let { putExtra(ReminderReceiver.EXTRA_TITLE, it) }
+            body?.let { putExtra(ReminderReceiver.EXTRA_BODY, it) }
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun alarmPendingIntent(id: Int, label: String?): PendingIntent {
@@ -94,6 +149,8 @@ class AlarmScheduler(context: Context) {
     companion object {
         private const val TAG = "AlarmScheduler"
         private const val PREFS_NAME = "scheduled_alarms"
+        private const val REMINDER_PREFS_NAME = "scheduled_reminders"
         const val ACTION_FIRE = "com.alarmapp.ALARM_FIRE"
+        const val ACTION_REMINDER = "com.alarmapp.REMINDER_FIRE"
     }
 }

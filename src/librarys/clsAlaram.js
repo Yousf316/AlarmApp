@@ -18,7 +18,6 @@ import {loadPrayerTimes} from './prayerData';
 import {
   ALARM_CATEGORY_ID,
   ALARM_SOUND_IOS,
-  RENEW_CHANNEL_ID,
   SNOOZE_ID_PREFIX,
 } from './NotificationManager';
 
@@ -35,6 +34,8 @@ const MIN_LEAD_MS = 5 * 1000;
 const AUTO_RESCHEDULE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const RENEW_NOTIFICATION_ID = 'renew-reminder';
+// Android reminder id (AlarmModule.scheduleReminder takes an int).
+const ANDROID_RENEW_REMINDER_ID = 1;
 
 const alarmNotificationId = id => `alarm-${id}`;
 
@@ -96,20 +97,32 @@ const cancelAllNative = async () => {
       await notifee.cancelTriggerNotifications(toCancel);
     }
   }
-  await notifee.cancelTriggerNotification(RENEW_NOTIFICATION_ID);
+  if (Platform.OS === 'android') {
+    await AlarmModule.cancelReminder(ANDROID_RENEW_REMINDER_ID);
+  } else {
+    await notifee.cancelTriggerNotification(RENEW_NOTIFICATION_ID);
+  }
 };
+
+const RENEW_TITLE = 'افتح التطبيق لتجديد المنبهات';
+const RENEW_BODY = 'انتهت المنبهات المجدولة، افتح التطبيق ليتم جدولة الأيام القادمة.';
 
 /** Reminds the user to open the app before the scheduled window runs out. */
 const scheduleRenewReminder = async timestamp => {
   if (Platform.OS === 'android') {
-    await notifee.createChannel({id: RENEW_CHANNEL_ID, name: 'تجديد المنبهات'});
+    await AlarmModule.scheduleReminder(
+      ANDROID_RENEW_REMINDER_ID,
+      timestamp,
+      RENEW_TITLE,
+      RENEW_BODY,
+    );
+    return;
   }
   await notifee.createTriggerNotification(
     {
       id: RENEW_NOTIFICATION_ID,
-      title: 'افتح التطبيق لتجديد المنبهات',
-      body: 'انتهت المنبهات المجدولة، افتح التطبيق ليتم جدولة الأيام القادمة.',
-      android: {channelId: RENEW_CHANNEL_ID, pressAction: {id: 'default'}},
+      title: RENEW_TITLE,
+      body: RENEW_BODY,
       ios: {sound: 'default'},
     },
     {type: TriggerType.TIMESTAMP, timestamp},

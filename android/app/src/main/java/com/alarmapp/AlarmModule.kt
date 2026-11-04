@@ -52,6 +52,32 @@ class AlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         }
     }
 
+    /** A plain notification at [timestamp] (e.g. "open the app to renew the alarms"). */
+    @ReactMethod
+    fun scheduleReminder(id: Int, timestamp: Double, title: String, body: String, promise: Promise) {
+        try {
+            val triggerAt = timestamp.toLong()
+            if (triggerAt <= System.currentTimeMillis()) {
+                promise.reject("REMINDER_IN_PAST", "Reminder time is in the past")
+                return
+            }
+            scheduler.setReminder(id, triggerAt, title, body)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("SET_REMINDER_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun cancelReminder(id: Int, promise: Promise) {
+        try {
+            scheduler.cancelReminder(id)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("CANCEL_REMINDER_ERROR", e.message, e)
+        }
+    }
+
     @ReactMethod
     fun canScheduleExactAlarms(promise: Promise) {
         promise.resolve(scheduler.canScheduleExact())

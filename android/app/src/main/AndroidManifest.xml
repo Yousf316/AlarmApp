@@ -63,5 +63,7 @@
 
         <receiver android:name=".StopAlarmReceiver" android:exported="false" />
 
+        <receiver android:name=".ReminderReceiver" android:exported="false" />
+
     </application>
 </manifest>

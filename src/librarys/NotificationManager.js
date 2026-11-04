@@ -1,6 +1,6 @@
 import {AuthorizationStatus, EventType, TriggerType} from '@notifee/react-native';
 import notifee from './notifeeGuard';
-import {Platform} from 'react-native';
+import {PermissionsAndroid, Platform} from 'react-native';
 
 export const ALARM_CATEGORY_ID = 'alarm-category';
 export const RENEW_CHANNEL_ID = 'renew';
@@ -14,8 +14,17 @@ const SNOOZE_MINUTES = 5;
 const STOP_ACTION = 'STOP_ALARM';
 const SNOOZE_ACTION = 'SNOOZE_ALARM';
 
-/** iOS permission prompt (Android 13+ is requested in MainActivity). */
+/** Notification permission prompt: iOS system dialog, Android 13+ POST_NOTIFICATIONS. */
 export async function requestNotificationPermission() {
+  if (Platform.OS === 'android') {
+    if (Platform.Version < 33) {
+      return true; // no runtime permission before Android 13
+    }
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  }
   if (Platform.OS !== 'ios') {
     return true;
   }

@@ -166,6 +166,29 @@ describe('clsAlarm on Android', () => {
     expect(label).toBe('قبل الظهر بـ 01:00');
   });
 
+  it('schedules the renew reminder natively one minute after the last alarm, without Notifee', async () => {
+    mockDb.userTimes = [{id: 3, hour: 1, minute: 0, prayers: ['Dhuhr']}];
+    mockDays = makeDays(2);
+
+    await clsAlarm.rescheduleAll();
+
+    const lastAlarm = NativeModules.AlarmModule.setAlarm.mock.calls.at(-1)[1];
+    expect(NativeModules.AlarmModule.scheduleReminder).toHaveBeenCalledTimes(1);
+    const [id, timestamp, title] = NativeModules.AlarmModule.scheduleReminder.mock.calls[0];
+    expect(id).toBe(1);
+    expect(timestamp).toBe(lastAlarm + 60 * 1000);
+    expect(title).toBe('افتح التطبيق لتجديد المنبهات');
+    expect(notifee.createTriggerNotification).not.toHaveBeenCalled();
+    expect(notifee.createChannel).not.toHaveBeenCalled();
+  });
+
+  it('cancels the old renew reminder before rescheduling', async () => {
+    mockDb.userTimes = [{id: 3, hour: 1, minute: 0, prayers: ['Dhuhr']}];
+    await clsAlarm.rescheduleAll();
+    expect(NativeModules.AlarmModule.cancelReminder).toHaveBeenCalledWith(1);
+    expect(notifee.cancelTriggerNotification).not.toHaveBeenCalled();
+  });
+
   it('skips an automatic reschedule when nothing changed', async () => {
     mockDb.userTimes = [{id: 3, hour: 1, minute: 0, prayers: ['Dhuhr']}];
     await clsAlarm.rescheduleAll();
