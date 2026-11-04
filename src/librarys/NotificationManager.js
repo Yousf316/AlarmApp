@@ -1,8 +1,5 @@
-import notifee, {
-  AuthorizationStatus,
-  EventType,
-  TriggerType,
-} from '@notifee/react-native';
+import {AuthorizationStatus, EventType, TriggerType} from '@notifee/react-native';
+import notifee from './notifeeGuard';
 import {Platform} from 'react-native';
 
 export const ALARM_CATEGORY_ID = 'alarm-category';

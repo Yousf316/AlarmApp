@@ -1,5 +1,6 @@
 import {Platform, NativeModules} from 'react-native';
-import notifee, {TriggerType} from '@notifee/react-native';
+import {TriggerType} from '@notifee/react-native';
+import notifee from './notifeeGuard';
 import {
   addAlarm,
   deleteAllAlarms,

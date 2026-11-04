@@ -1,6 +1,6 @@
 import React, {useEffect} from 'react';
 import {AppState} from 'react-native';
-import notifee from '@notifee/react-native';
+import notifee from './src/librarys/notifeeGuard';
 import {NavigationContainer} from '@react-navigation/native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';

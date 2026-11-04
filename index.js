@@ -3,7 +3,7 @@
  */
 
 import {AppRegistry} from 'react-native';
-import notifee from '@notifee/react-native';
+import notifee from './src/librarys/notifeeGuard';
 import App from './App';
 import {name as appName} from './app.json';
 import {handleNotificationEvent} from './src/librarys/NotificationManager';

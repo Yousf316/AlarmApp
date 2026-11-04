@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {View, FlatList, TouchableOpacity, Text, StyleSheet, Alert} from 'react-native';
+import {View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, Platform} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import {initDB} from '../../database/db';
@@ -7,6 +7,7 @@ import {addUserTime, getUserTimes} from '../../database/userTimeService';
 import AddAlarmModal from './AddAlarmModal';
 import AlarmItem from './AlarmItem';
 import clsAlarm from '../librarys/clsAlaram';
+import {requestPermission, scheduleTestAlarm} from '../core/alarms/prayerAlarmNative';
 
 export default function AlarmList() {
   const [alarms, setAlarms] = useState([]);
@@ -50,6 +51,22 @@ export default function AlarmList() {
       Alert.alert('خطأ', 'فشل في ضبط المنبه');
     } finally {
       setBusy(false);
+    }
+  };
+
+  // TEMPORARY (moves to the settings screen in the UI phase): lets a real device
+  // verify Snooze/Stop with the app closed.
+  const handleTestAlarm = async () => {
+    try {
+      const permission = await requestPermission();
+      if (permission && !['authorized', 'provisional'].includes(permission.status)) {
+        Alert.alert('الإشعارات معطّلة', 'فعّل الإشعارات للتطبيق من إعدادات iOS.');
+        return;
+      }
+      await scheduleTestAlarm(10);
+      Alert.alert('تم', 'سيرن المنبه التجريبي بعد 10 ثوانٍ. أغلق التطبيق تماماً لاختبار الغفوة.');
+    } catch (error) {
+      Alert.alert('خطأ', String(error?.message ?? error));
     }
   };
 
@@ -101,6 +118,12 @@ export default function AlarmList() {
           <Text style={styles.addButtonText}>{busy ? 'جاري الضبط...' : 'إضافة منبه'}</Text>
         </TouchableOpacity>
 
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity style={styles.testButton} onPress={handleTestAlarm}>
+            <Text style={styles.testButtonText}>منبه تجريبي بعد 10 ثوانٍ</Text>
+          </TouchableOpacity>
+        )}
+
         {alarms.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={handleDeleteAll}>
             <Text style={styles.clearButtonText}>إلغاء جميع التنبيهات</Text>
@@ -143,6 +166,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  testButton: {
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  testButtonText: {
+    color: '#007bff',
+    fontSize: 15,
   },
   clearButton: {
     padding: 10,

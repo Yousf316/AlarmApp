@@ -17,7 +17,15 @@ class AppDelegate: RCTAppDelegate {
     // Custom initial props
     self.initialProps = [:]
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    // The notification delegate must be set before launch finishes (and before JS
+    // boots) or action buttons are not delivered when the app was killed.
+    PrayerAlarmCenter.shared.install()
+
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+    // Re-assert in case anything replaced the delegate during startup.
+    PrayerAlarmCenter.shared.assertDelegate(reason: "didFinishLaunching")
+    return result
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {

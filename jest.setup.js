@@ -35,3 +35,17 @@ NativeModules.AlarmModule = {
   cancelAll: jest.fn(() => Promise.resolve(true)),
   canScheduleExactAlarms: jest.fn(() => Promise.resolve(true)),
 };
+
+NativeModules.PrayerAlarmModule = {
+  getPermissionStatus: jest.fn(() =>
+    Promise.resolve({status: 'authorized', alert: true, sound: true, timeSensitive: true}),
+  ),
+  requestPermission: jest.fn(() =>
+    Promise.resolve({status: 'authorized', alert: true, sound: true, timeSensitive: true}),
+  ),
+  schedule: jest.fn(() => Promise.resolve(true)),
+  cancel: jest.fn(() => Promise.resolve(true)),
+  cancelAll: jest.fn(() => Promise.resolve(0)),
+  getPendingIds: jest.fn(() => Promise.resolve([])),
+  reassertDelegate: jest.fn(() => Promise.resolve(false)),
+};
