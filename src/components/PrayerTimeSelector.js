@@ -1,93 +1,72 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import React from 'react';
+import {View, Text, StyleSheet, Platform} from 'react-native';
+import {Picker} from '@react-native-picker/picker';
 
-const countries = [
-  { label: "السعودية", value: "SA" },
-  { label: "مصر", value: "Egypt" },
-  { label: "الإمارات", value: "UAE" },
+// Values are ISO 3166 country codes (accepted by the Aladhan API).
+export const countries = [
+  {label: 'السعودية', value: 'SA'},
+  {label: 'مصر', value: 'EG'},
+  {label: 'الإمارات', value: 'AE'},
 ];
 
-const citiesByCountry = {
+export const citiesByCountry = {
   SA: [
-    { label: "جدة", value: "Jeddah" },
-    { label: "الرياض", value: "Riyadh" },
-    { label: "مكة", value: "Mecca" },
+    {label: 'جدة', value: 'Jeddah'},
+    {label: 'الرياض', value: 'Riyadh'},
+    {label: 'مكة', value: 'Mecca'},
   ],
-  Egypt: [
-    { label: "القاهرة", value: "Cairo" },
-    { label: "الإسكندرية", value: "Alexandria" },
+  EG: [
+    {label: 'القاهرة', value: 'Cairo'},
+    {label: 'الإسكندرية', value: 'Alexandria'},
   ],
-  UAE: [
-    { label: "دبي", value: "Dubai" },
-    { label: "أبو ظبي", value: "Abu Dhabi" },
+  AE: [
+    {label: 'دبي', value: 'Dubai'},
+    {label: 'أبو ظبي', value: 'Abu Dhabi'},
   ],
 };
 
-const PrayerTimeSelector = ({
-  onSelect,
-  selectedCountry,
-  setSelectedCountry,
-  selectedCity,
-  setSelectedCity,
-  selectedCityar,
-  setSelectedCityar,
-}) => {
-  useEffect(() => {
-    if (selectedCountry && selectedCity) {
-      onSelect(selectedCity, selectedCountry);
-    }
-  }, [selectedCity, selectedCountry]);
+export const getCityLabel = (country, city) =>
+  citiesByCountry[country]?.find(c => c.value === city)?.label ?? city;
 
-  const pickerHeight = Platform.OS === "ios" ? 150 : 60; // iOS needs taller height
+/**
+ * Controlled country/city picker. Calls onSelect(city, country) only when the
+ * user picks a real city (placeholder "null" entries are ignored).
+ */
+const PrayerTimeSelector = ({selectedCountry, selectedCity, onSelect}) => {
+  const pickerHeight = Platform.OS === 'ios' ? 150 : 60;
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>اختر الدولة:</Text>
-      <View style={[pickerWrapper, { height: pickerHeight }]}>
+      <View style={[styles.pickerWrapper, {height: pickerHeight}]}>
         <Picker
           selectedValue={selectedCountry}
-          onValueChange={(value) => {
-            setSelectedCountry(value);
-            const firstCity = citiesByCountry[value]?.[0]?.value || null;
-            setSelectedCity(firstCity);
-            if (firstCity) {
-              setSelectedCityar(citiesByCountry[value][0].label);
-            } else {
-              setSelectedCityar(null);
+          onValueChange={country => {
+            const firstCity = citiesByCountry[country]?.[0]?.value;
+            if (country && firstCity && country !== selectedCountry) {
+              onSelect(firstCity, country);
             }
-          }}
-        >
-          <Picker.Item label="اختر الدولة..." value={null} />
-          {countries.map((country) => (
+          }}>
+          {countries.map(country => (
             <Picker.Item key={country.value} label={country.label} value={country.value} />
           ))}
         </Picker>
       </View>
 
-      {selectedCountry && (
-        <>
-          <Text style={styles.label}>اختر المدينة:</Text>
-          <View style={[pickerWrapper, { height: pickerHeight }]}>
-            <Picker
-              selectedValue={selectedCity}
-              onValueChange={(value) => {
-                setSelectedCity(value);
-                if (value != null) {
-                  setSelectedCityar(
-                    citiesByCountry[selectedCountry].find((city) => city.value === value).label
-                  );
-                }
-              }}
-            >
-              <Picker.Item label="اختر المدينة..." value={null} />
-              {citiesByCountry[selectedCountry]?.map((city) => (
-                <Picker.Item key={city.value} label={city.label} value={city.value} />
-              ))}
-            </Picker>
-          </View>
-        </>
-      )}
+      <Text style={styles.label}>اختر المدينة:</Text>
+      <View style={[styles.pickerWrapper, {height: pickerHeight}]}>
+        <Picker
+          selectedValue={selectedCity}
+          onValueChange={city => {
+            if (city && city !== selectedCity) {
+              onSelect(city, selectedCountry);
+            }
+          }}>
+          {citiesByCountry[selectedCountry]?.map(city => (
+            <Picker.Item key={city.value} label={city.label} value={city.value} />
+          ))}
+        </Picker>
+      </View>
     </View>
   );
 };
@@ -98,19 +77,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 5,
-    textAlign: "right",
+    textAlign: 'right',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    borderRadius: 5,
+    marginBottom: 10,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
 });
-
-const pickerWrapper = {
-  borderWidth: 1,
-  borderColor: "#007AFF",
-  borderRadius: 5,
-  marginBottom: 10,
-  justifyContent: "center",
-  overflow: "hidden",
-};
 
 export default PrayerTimeSelector;

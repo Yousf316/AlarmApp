@@ -1,15 +1,21 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import TimeCalculate from "../librarys/TimeCalculate";
+import React from 'react';
+import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import {formatDuration} from '../librarys/TimeCalculate';
+import clsUtility from '../librarys/clsUtilty';
 
-const AlarmItem = ({ item, onDelete }) => {
-  console.log("AlarmItem:", item);
-  const timeCalculate = new TimeCalculate();
+const AlarmItem = ({item, onDelete}) => {
+  const prayers = item.prayers?.length
+    ? item.prayers.map(clsUtility.GetNamePrayerAr).join('، ')
+    : 'منبه قديم – احذفه وأعد إضافته';
+
   return (
     <View style={styles.alarmItem}>
-      <Text style={styles.alarmText}>
-        قبل الصلاة ب {item.hour}:{item.minute}
-      </Text>
+      <View style={styles.info}>
+        <Text style={styles.alarmText}>
+          قبل الصلاة بـ {formatDuration(item.hour, item.minute)}
+        </Text>
+        <Text style={styles.prayersText}>{prayers}</Text>
+      </View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item.id)}>
         <Text style={styles.deleteButtonText}>حذف</Text>
       </TouchableOpacity>
@@ -19,32 +25,38 @@ const AlarmItem = ({ item, onDelete }) => {
 
 const styles = StyleSheet.create({
   alarmItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 15,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 5,
     marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 3,
   },
+  info: {flex: 1},
   alarmText: {
     fontSize: 16,
-    color: "#333",
+    color: '#333',
+  },
+  prayersText: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
   },
   deleteButton: {
-    backgroundColor: "#dc3545",
+    backgroundColor: '#dc3545',
     padding: 10,
     borderRadius: 5,
   },
   deleteButtonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
 });
 

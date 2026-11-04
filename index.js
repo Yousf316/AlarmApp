@@ -3,14 +3,13 @@
  */
 
 import {AppRegistry} from 'react-native';
+import notifee from '@notifee/react-native';
 import App from './App';
 import {name as appName} from './app.json';
-// Patch console.log to always print, even in release mode
-if (!__DEV__) {
-  const originalConsoleLog = console.log;
-  console.log = (...args) => {
-    originalConsoleLog(...args);
-    // optionally, you could also send logs to a remote server here
-  };
-}
+import {handleNotificationEvent} from './src/librarys/NotificationManager';
+
+// Must be registered at module scope so iOS action buttons (Stop / Snooze)
+// work while the app is in the background or killed.
+notifee.onBackgroundEvent(handleNotificationEvent);
+
 AppRegistry.registerComponent(appName, () => App);

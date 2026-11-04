@@ -2,31 +2,48 @@ package com.alarmapp
 
 import android.app.Activity
 import android.content.Intent
-import android.media.MediaPlayer
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Button
-import android.widget.TextView // Add this import
+import android.widget.TextView
 
 class AlarmActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showOverLockScreen()
         setContentView(R.layout.activity_alarm)
-        val label = intent.getStringExtra("alarmLabel") ?: "المنبه يرن!"
-val textView = findViewById<TextView>(R.id.alarmLabelTextView)
+        bindLabel(intent)
 
-        // Set the label text
-        textView.text = label
-        // زر إيقاف التنبيه
-        val stopAlarmButton = findViewById<Button>(R.id.stopAlarmButton)
-        stopAlarmButton.setOnClickListener {
-            stopAlarmService() // إيقاف الخدمة
-            finish() // إغلاق الشاشة
+        findViewById<Button>(R.id.stopAlarmButton).setOnClickListener {
+            stopService(Intent(this, AlarmService::class.java))
+            finish()
         }
     }
 
-    private fun stopAlarmService() {
-        val serviceIntent = Intent(this, AlarmService::class.java)
-        stopService(serviceIntent) // يوقف الخدمة وبالتالي يوقف الصوت
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        bindLabel(intent)
+    }
+
+    private fun bindLabel(intent: Intent?) {
+        findViewById<TextView>(R.id.alarmLabelTextView).text =
+            intent?.getStringExtra(AlarmReceiver.EXTRA_LABEL) ?: "المنبه يرن!"
+    }
+
+    private fun showOverLockScreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 }

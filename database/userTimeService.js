@@ -1,50 +1,39 @@
-import db from "./db";
+import {query, run, runBatch} from './db';
 
-// Add User Chosen Time
-export const addUserTime = (hour, minute) => {
-  return new Promise((resolve, reject) => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "INSERT INTO user_times (hour, minute) VALUES (?, ?)",
-        [hour, minute],
-        (_, result) => resolve(result.insertId),
-        (_, error) => reject(error)
-      );
-    });
-  });
+export const PRAYER_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+
+const parsePrayers = value =>
+  typeof value === 'string' && value.length > 0
+    ? value.split(',').filter(p => PRAYER_NAMES.includes(p))
+    : [];
+
+/**
+ * Save a user alarm: "ring <hour>h <minute>m before each of <prayers>".
+ * @param {number} hour
+ * @param {number} minute
+ * @param {string[]} prayers e.g. ['Fajr', 'Isha']
+ */
+export const addUserTime = async (hour, minute, prayers) => {
+  const valid = prayers.filter(p => PRAYER_NAMES.includes(p));
+  const result = await run(
+    'INSERT INTO user_times (hour, minute, prayers) VALUES (?, ?, ?)',
+    [hour, minute, valid.join(',')],
+  );
+  return result.insertId;
 };
 
-// Get All User Chosen Times
-export const getUserTimes = () => {
-  return new Promise((resolve, reject) => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "SELECT * FROM user_times",
-        [],
-        (_, result) => {
-          const rows = result.rows.raw(); // Convert result into an array
-          console.log("📊 User Times:", rows);
-          resolve(rows); // Resolve the promise with the fetched data
-        },
-        (_, error) => {
-          console.error("❌ Error fetching user_times:", error);
-          reject(error); // Reject the promise with the error
-        }
-      );
-    });
-  });
+/** @returns {Promise<Array<{id:number,hour:number,minute:number,prayers:string[]}>>} */
+export const getUserTimes = async () => {
+  const rows = await query('SELECT * FROM user_times ORDER BY id');
+  return rows.map(r => ({...r, prayers: parsePrayers(r.prayers)}));
 };
 
-// Delete User Chosen Time by ID
-export const deleteUserTime = (id) => {
-  return new Promise((resolve, reject) => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "DELETE FROM user_times WHERE id = ?",
-        [id],
-        () => resolve(),
-        (_, error) => reject(error)
-      );
-    });
-  });
-};
+/** Delete a user alarm and its scheduled rows. */
+export const deleteUserTime = id =>
+  runBatch([
+    ['DELETE FROM alarms WHERE user_time_id = ?', [id]],
+    ['DELETE FROM user_times WHERE id = ?', [id]],
+  ]);
+
+export const deleteAllUserTimes = () =>
+  runBatch([['DELETE FROM alarms'], ['DELETE FROM user_times']]);

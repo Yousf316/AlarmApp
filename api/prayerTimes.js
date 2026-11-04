@@ -1,111 +1,104 @@
-export const getPrayerTimesByCity = async (city, country) => {
-    try {
-      const response = await fetch(
-        `https://api.aladhan.com/v1/timingsByCity?city=${city}&country=${country}&method=4`
-        
-      );
-      const data = await response.json();
-      console.log("API Response:", data);
-      if (data.code === 200) {
-        return data.data.timings;
-      } else {
-        console.error("Error fetching prayer times:", data);
-        return null;
-      }
-    } catch (error) {
-      console.error("API Error:", error);
-      return null;
-    }
-  };
-  export const getPrayerTimesByCityandDate = async (city, country, date = new Date()) => {
-    try {
-        // Convert the date to a Unix timestamp (seconds)
-        const timestamp = Math.floor(date.getTime() / 1000);
+const BASE_URL = 'https://api.aladhan.com/v1';
+const REQUEST_TIMEOUT_MS = 15000;
 
-        const response = await fetch(
-            `http://api.aladhan.com/v1/timings/${timestamp}?city=${city}&country=${country}&method=4`
-        );
+export const PRAYERS = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-        const data = await response.json();
-        console.log("API Response:", data);
-
-        if (data.code === 200) {
-            return data.data.timings;
-        } else {
-            console.error("Error fetching prayer times:", data);
-            return null;
-        }
-    } catch (error) {
-        console.error("API Error:", error);
-        return null;
-    }
+// Aladhan calculation methods: https://aladhan.com/calculation-methods
+const METHOD_BY_COUNTRY = {
+  SA: 4, // Umm Al-Qura, Makkah
+  EG: 5, // Egyptian General Authority of Survey
+  AE: 8, // Gulf Region
 };
+const DEFAULT_METHOD = 4;
 
+export const getMethodForCountry = country =>
+  METHOD_BY_COUNTRY[country] ?? DEFAULT_METHOD;
 
-export const getPrayerTimesForNextDays = async (city, country, daysAhead = 7) => {
+const fetchWithTimeout = async (url, timeoutMs = REQUEST_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-      const today = new Date();
-      let month = today.getMonth() + 1;
-      let year = today.getFullYear();
-
-      let allPrayerTimes = [];
-
-      // Fetch current month data
-      const response = await fetch(
-          `http://api.aladhan.com/v1/calendarByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=4&month=${month}&year=${year}`
-      );
-      const data = await response.json();
-
-      if (data.code !== 200) {
-          console.error("Error fetching prayer times:", data);
-          return null;
-      }
-
-      let prayerTimes = data.data;
-      const daysInCurrentMonth = prayerTimes.length;
-
-      let remainingDays = daysAhead;
-      let dayIndex = today.getDate() - 1;
-
-      // Add days from current month
-      while (remainingDays > 0 && dayIndex < daysInCurrentMonth) {
-          allPrayerTimes.push({
-              date: prayerTimes[dayIndex].date.gregorian.date,
-              timings: prayerTimes[dayIndex].timings,
-          });
-          remainingDays--;
-          dayIndex++;
-      }
-
-      // If more days are needed, fetch the next month
-      if (remainingDays > 0) {
-          month++;
-          if (month > 12) {
-              month = 1;
-              year++;
-          }
-
-          const nextMonthResponse = await fetch(
-              `http://api.aladhan.com/v1/calendarByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=4&month=${month}&year=${year}`
-          );
-          const nextMonthData = await nextMonthResponse.json();
-
-          if (nextMonthData.code === 200) {
-              const nextMonthPrayerTimes = nextMonthData.data;
-
-              for (let i = 0; i < remainingDays && i < nextMonthPrayerTimes.length; i++) {
-                  allPrayerTimes.push({
-                      date: nextMonthPrayerTimes[i].date.gregorian.date,
-                      timings: nextMonthPrayerTimes[i].timings,
-                  });
-              }
-          }
-      }
-
-      return allPrayerTimes;
-  } catch (error) {
-      console.error("API Error:", error);
-      return null;
+    return await fetch(url, {signal: controller.signal});
+  } finally {
+    clearTimeout(timer);
   }
 };
 
+/**
+ * Convert one Aladhan calendar entry (requested with iso8601=true) into:
+ *   {
+ *     date: 'DD-MM-YYYY',
+ *     timings:    { Fajr: '04:41', ... }        – local time of the city, for display
+ *     timestamps: { Fajr: 1793515260000, ... }  – exact instant (ms since epoch)
+ *   }
+ * Using the ISO string with its UTC offset makes alarms correct even when the
+ * device timezone differs from the selected city's timezone.
+ */
+export const normalizeDay = entry => {
+  const timings = {};
+  const timestamps = {};
+  for (const prayer of PRAYERS) {
+    const iso = entry?.timings?.[prayer];
+    if (typeof iso !== 'string') {
+      continue;
+    }
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) {
+      continue;
+    }
+    timings[prayer] = iso.substring(11, 16); // "HH:MM" in the city's local time
+    timestamps[prayer] = ms;
+  }
+  return {date: entry?.date?.gregorian?.date, timings, timestamps};
+};
+
+const fetchMonth = async (city, country, month, year) => {
+  const url =
+    `${BASE_URL}/calendarByCity?city=${encodeURIComponent(city)}` +
+    `&country=${encodeURIComponent(country)}` +
+    `&method=${getMethodForCountry(country)}` +
+    `&month=${month}&year=${year}&iso8601=true`;
+
+  const response = await fetchWithTimeout(url);
+  const data = await response.json();
+  if (data.code !== 200 || !Array.isArray(data.data)) {
+    throw new Error(`Prayer API error: ${data.status || data.code}`);
+  }
+  return data.data.map(normalizeDay);
+};
+
+/**
+ * Prayer times for today + the next (daysAhead - 1) days.
+ * @returns {Promise<Array<{date:string,timings:object,timestamps:object}>|null>}
+ */
+export const getPrayerTimesForNextDays = async (
+  city,
+  country,
+  daysAhead = 7,
+) => {
+  if (!city || !country) {
+    return null;
+  }
+  try {
+    const today = new Date();
+    let month = today.getMonth() + 1;
+    let year = today.getFullYear();
+
+    const current = await fetchMonth(city, country, month, year);
+    const result = current.slice(today.getDate() - 1, today.getDate() - 1 + daysAhead);
+
+    if (result.length < daysAhead) {
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+      const next = await fetchMonth(city, country, month, year);
+      result.push(...next.slice(0, daysAhead - result.length));
+    }
+    return result;
+  } catch (error) {
+    console.warn('Prayer API error:', error?.message ?? error);
+    return null;
+  }
+};

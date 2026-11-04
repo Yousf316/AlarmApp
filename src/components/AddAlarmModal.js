@@ -1,12 +1,11 @@
-import React, { use, useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, TouchableWithoutFeedback, Keyboard, Platform, Alert } from "react-native";
 import { Checkbox } from "react-native-paper";
 import clsUtility from "../librarys/clsUtilty";
 
 const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
   const [hour, setHour] = useState("0");
   const [minute, setMinute] = useState("5");
-  const [allDays, setallDays] = useState(false);
   const [selectedPrayers, setSelectedPrayers] = useState({
     "Fajr": false,
     "Dhuhr": false,
@@ -15,11 +14,10 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
     "Isha": false,
   });
 
-  useEffect(() => {
-    Alldays(allDays);
-  }, [allDays]);
+  // "All prayers" is derived, so un-ticking one prayer also un-ticks "all"
+  // instead of wiping every individual choice.
+  const allDays = Object.values(selectedPrayers).every(Boolean);
 
-  
   const handleAdd = () => {
     const parsedHour = parseInt(hour, 10);
     const parsedMinute = parseInt(minute, 10);
@@ -32,23 +30,30 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
       parsedMinute < 0 ||
       parsedMinute > 59
     ) {
-      alert("يرجى إدخال وقت صحيح (0-23 ساعة و 0-59 دقيقة).");
+      Alert.alert("خطأ", "يرجى إدخال وقت صحيح (0-23 ساعة و 0-59 دقيقة).");
+      return;
+    }
+    if (parsedHour === 0 && parsedMinute === 0) {
+      Alert.alert("خطأ", "يرجى إدخال مدة أكبر من صفر.");
       return;
     }
 
-    onAddAlarm(
-       parsedHour,
-       parsedMinute,
-       selectedPrayers,
-    );
+    const prayers = Object.keys(selectedPrayers).filter((p) => selectedPrayers[p]);
+    if (prayers.length === 0) {
+      Alert.alert("خطأ", "يرجى اختيار صلاة واحدة على الأقل.");
+      return;
+    }
+
+    onAddAlarm(parsedHour, parsedMinute, prayers);
 
     onClose();
   };
-  const Alldays = (value) => {
+
+  const setAll = (value) => {
     setSelectedPrayers((prev) => {
       const newState = {};
       for (const day in prev) {
-        newState[day] = value; 
+        newState[day] = value;
       }
       return newState;
     });
@@ -99,7 +104,7 @@ const AddAlarmModal = ({ isVisible, onClose, onAddAlarm }) => {
           <Checkbox
           
             status={allDays ? "checked" : "unchecked"}
-            onPress={() => setallDays(!allDays)}
+            onPress={() => setAll(!allDays)}
             color="#007bff"
             uncheckedColor="#000000ff" // border color
        

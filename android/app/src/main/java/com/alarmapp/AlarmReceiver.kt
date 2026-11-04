@@ -3,21 +3,28 @@ package com.alarmapp
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.PowerManager
+import androidx.core.content.ContextCompat
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-      
-        val label = intent?.getStringExtra("alarmLabel") ?: "المنبه يرن!"
+        val id = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
+        val label = intent?.getStringExtra(EXTRA_LABEL) ?: "المنبه يرن!"
 
-        // تشغيل Foreground Service لتشغيل صوت المنبه
-        val serviceIntent = Intent(context, AlarmService::class.java)
-        context.startService(serviceIntent)
+        if (id != -1) {
+            AlarmScheduler(context).markFired(id)
+        }
 
-       val alarmIntent = Intent(context, AlarmActivity::class.java)
-        alarmIntent.putExtra("alarmLabel", label) 
-        alarmIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        context?.startActivity(alarmIntent)
+        // Starting an activity from the background is blocked on Android 10+.
+        // The service posts a full-screen-intent notification that opens
+        // AlarmActivity instead (over the lock screen).
+        val serviceIntent = Intent(context, AlarmService::class.java).apply {
+            putExtra(EXTRA_LABEL, label)
+        }
+        ContextCompat.startForegroundService(context, serviceIntent)
+    }
 
+    companion object {
+        const val EXTRA_ALARM_ID = "alarmId"
+        const val EXTRA_LABEL = "alarmLabel"
     }
 }

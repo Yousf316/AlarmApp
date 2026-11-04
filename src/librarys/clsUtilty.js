@@ -1,25 +1,19 @@
+const PRAYER_NAMES_AR = {
+  Fajr: 'الفجر',
+  Dhuhr: 'الظهر',
+  Asr: 'العصر',
+  Maghrib: 'المغرب',
+  Isha: 'العشاء',
+};
+
 class clsUtility {
-    // Prevent instantiation
-    constructor() {
-        throw new Error("clsUtility is a static class and cannot be instantiated.");
-    }
+  // Prevent instantiation
+  constructor() {
+    throw new Error('clsUtility is a static class and cannot be instantiated.');
+  }
 
-    // Example static method
-    static GetNamePrayerAr = (prayerNameEng) => {
-        switch (prayerNameEng) {
-          case "Fajr":
-            return "الفجر";
-          case "Dhuhr":
-            return "الظهر";
-          case "Asr":
-            return "العصر";
-          case "Maghrib":
-            return "المغرب";
-          case "Isha":
-            return "العشاء";
-        }}
-
-   
+  static GetNamePrayerAr = prayerNameEng =>
+    PRAYER_NAMES_AR[prayerNameEng] ?? prayerNameEng;
 }
 
 export default clsUtility;

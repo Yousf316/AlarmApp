@@ -2,7 +2,9 @@ package com.alarmapp
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,11 +23,24 @@ class MainActivity : ReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 🔹 Check permission for SCHEDULE_EXACT_ALARM in Android 12+
+        // 🔹 Android 12/12L: SCHEDULE_EXACT_ALARM can be revoked by the user.
+        //    (Android 13+ uses USE_EXACT_ALARM, which is always granted.)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(AlarmManager::class.java)
             if (!alarmManager.canScheduleExactAlarms()) {
-                startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                startActivity(
+                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName"))
+                )
+            }
+        }
+
+        // 🔹 Android 14+: full-screen alarm UI needs USE_FULL_SCREEN_INTENT to be allowed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            if (!notificationManager.canUseFullScreenIntent()) {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName"))
+                )
             }
         }
 
