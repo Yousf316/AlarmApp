@@ -1,137 +1,145 @@
-# تقرير تسليم: منبه الصلاة v2 (للمتابعة على macOS)
+# تقرير تسليم: منبه الصلاة v2
 
-> **إلى Claude على الماك:** هذا التقرير يكفي لتكمل العمل. اقرأه كاملاً، ثم `docs/PLAN.md` (الخطة المعتمدة من المستخدم). المستخدم يكتب بالعربية؛ أجبه بالعربية.
-> آخر تحديث: 2026-11-05 (على الماك) — الفرع `feature/prayer-alarms-v2`. **1·3أ و1·3ب و3أ منفَّذة**؛ التالي 3ب (Android أصلي). انظر القسم 6.
-
----
-
-## 1. لماذا انتقلنا إلى الماك
-
-العمل السابق تم على Windows، فلم يكن ممكناً:
-- ترجمة/تشغيل iOS محلياً (كان التحقق عبر GitHub Actions فقط).
-- تشغيل التطبيق فعلياً: محاكي Android على ذلك الجهاز لم يُقلع، فلم يُجرَّب أي شيء وقت التشغيل على أي منصة.
-
-**أول ما يجب فعله على الماك:** تشغيل التطبيق على محاكي iOS والتحقق من المرحلة 1·3أ (القسم 6).
+> **إلى Claude في الجلسة القادمة:** اقرأ هذا التقرير كاملاً، ثم `docs/PLAN.md` (الخطة الأصلية المعتمدة). المستخدم يكتب بالعربية؛ أجبه بالعربية.
+> **آخر تحديث:** 2026-11-05 — جلسة على macOS. الفرع `feature/prayer-alarms-v2` عند `6dab3ca` (+ commit هذا التقرير).
+> **الحالة:** المراحل 0، 1 (كاملة)، 2، 3أ منفَّذة. **التالي: 3ب (Android أصلي)** — بانتظار قرار المستخدم (القسم 7).
 
 ---
 
-## 2. المشروع باختصار
+## 1. ملخص جلسة الماك (2026-11-04/05)
 
-- **React Native CLI (bare) 0.78.0** — ليس Expo. التعديلات الأصلية يدوية في `ios/` و `android/`.
-- **New Architecture مفعّلة** على المنصتين (Android عبر `newArchEnabled=true`؛ iOS افتراضياً في 0.78).
-- المستودع: `https://github.com/Yousf316/AlarmApp` (عام). الفرع: `feature/prayer-alarms-v2`. لا تدمج في `main` دون طلب المستخدم.
+1. **الإعداد على الماك** وتشغيل التطبيق لأول مرة منذ بداية v2 (محاكي iOS 18.3، Xcode 16.2).
+2. **التحقق من 1·3أ:** الإشعار يصل والتطبيق مقتول. **خلل وُجد وأُصلح** (`06a13e8`): `notifee.setNotificationCategories` كان يمسح فئات الغفوة/الإيقاف فلا تظهر الأزرار. بعد الإصلاح **جرّب المستخدم بنفسه: الأزرار والغفوة تعمل**.
+3. **`Podfile.lock`** كان قديماً في المستودع (بلا MMKV) → حُدّث (`8ffbc39`).
+4. **1·3ب — حذف notifee بالكامل** في 3 commits (`6debacf`, `24751ba`, `d1a4f1a`). CI أخضر على `d1a4f1a`.
+5. **3أ — ربط `src/core` بالجدولة** في commitين (`2ec5221`, `6dab3ca`). CI أخضر على `6dab3ca` (Lint+Jest، Android، iOS).
+
+---
+
+## 2. المشروع والإعداد
+
+- **React Native CLI (bare) 0.78.0** — ليس Expo. New Architecture مفعّلة على المنصتين.
+- المستودع: `https://github.com/Yousf316/AlarmApp` (عام). الفرع: `feature/prayer-alarms-v2`. **لا تدمج في `main` دون طلب المستخدم.**
 - Bundle ID: `com.yousef.alarmapp`، Team: `Z8V6T9666Y`، iOS deployment target 15.1.
 
-### الإعداد على الماك
+### الإعداد على هذا الماك (مُجرَّب)
 ```bash
-git fetch && git checkout feature/prayer-alarms-v2 && git pull
+git pull
 npm ci
-cd ios && bundle install && bundle exec pod install && cd ..
-npx jest                      # يجب: 10 suites, 94 tests passing
-npx react-native run-ios      # أو افتح ios/AlarmApp.xcworkspace في Xcode
+export LANG=en_US.UTF-8
+cd ios && /usr/local/bin/pod install && cd ..   # CocoaPods 1.16.2 العام — انظر الملاحظة
+npx jest                                        # المتوقع: 15 suites, 142 tests
+npx react-native start                          # Metro (في الخلفية)
+# بناء وتشغيل على المحاكي (iPhone 16 Pro, id 09EC047D-5FDF-4A77-BBAE-84507D93480F):
+cd ios && xcodebuild -workspace AlarmApp.xcworkspace -configuration Debug -scheme AlarmApp \
+  -destination id=09EC047D-5FDF-4A77-BBAE-84507D93480F build
+xcrun simctl install booted ~/Library/Developer/Xcode/DerivedData/AlarmApp-*/Build/Products/Debug-iphonesimulator/AlarmApp.app
+xcrun simctl launch booted com.yousef.alarmapp
 ```
+- **لا تستخدم `bundle exec pod install` محلياً:** `Gemfile` يثبّت `xcodeproj < 1.26` فيُختار CocoaPods 1.15.2، ومع Xcode 16.2 يفشل pod `react-native-sqlite-storage` بـ `React-Core.modulemap not found`. Ruby النظام 2.6 لا يصلح؛ Ruby 3.4 من Homebrew في `/usr/local/opt/ruby/bin`.
+- `pod install` يعدّل `ios/AlarmApp.xcodeproj/project.pbxproj` **شكلياً** → `git checkout -- ios/AlarmApp.xcodeproj/project.pbxproj` ولا تلتزم به.
+- `npx react-native run-ios` يخفي أخطاء البناء الحقيقية؛ استعمل `xcodebuild` مباشرة واقرأ أسطر `error:`.
+- **لا Android SDK ولا Java ولا محاكي Android** على هذا الماك → Android يُتحقق منه عبر CI فقط.
 
 ---
 
-## 3. ما أُنجز (كل commit مدفوع، و CI أخضر على آخرها)
+## 3. ما أُنجز
 
-| Commit | المرحلة | المحتوى |
-|---|---|---|
-| `70f36fc` | 0 | baseline للعمل السابق |
-| `9e632d9` | 1·0 | `.github/workflows/ci.yml`: Lint+Jest، Android `assembleDebug`، iOS simulator build بدون توقيع |
-| `517e427` | 1·1 | New Architecture على Android |
-| `80ba496` | 1·2 | التخزين: MMKV بدل SQLite بنفس واجهة `database/*` + هجرة لمرة واحدة من SQLite |
-| `3c14af8` | 1·3أ | `PrayerAlarmModule` (Swift، UNUserNotificationCenter) **بجانب** notifee |
-| `097d700` | 2 | المنطق الصرف في `src/core/` (مواقيت سنوية، fallback محلي، planner) — **غير موصول بالتطبيق بعد** |
-| `0569b1b`, `c326b9e` | CI | إصلاحات الـ workflow + عرض أخطاء xcodebuild كـ annotations |
-| `2929868` | iOS build | `Podfile`: تعطيل consteval لـ pod `fmt` (لازم مع Xcode 26) |
-| `de5cb14` | 1·2 | **MMKV v3 بدل v4** (انظر القسم 4) |
+| Commit | المرحلة | المحتوى | CI |
+|---|---|---|---|
+| `70f36fc` … `de5cb14` | 0 – 2 | baseline، CI، New Arch، MMKV v3 + هجرة SQLite، `PrayerAlarmModule`، المنطق الصرف `src/core`، إصلاحات بناء iOS (من جلسة Windows) | ✅ |
+| `ded46f7` | docs | تقرير التسليم والخطة | — |
+| `06a13e8` | 1·3أ | إصلاح: إعادة تسجيل فئات الأزرار بعد أن يمسحها notifee | ✅ |
+| `8ffbc39` | build | تحديث `Podfile.lock` (MMKV 3.3.3، حذف get-random-values) | (أُلغي بدفع لاحق؛ مغطى بـ `d1a4f1a`) |
+| `6debacf` | 1·3ب | Android: تذكير التجديد بـ Kotlin (`ReminderReceiver`) + `POST_NOTIFICATIONS` من JS | Android ✅ |
+| `24751ba` | 1·3ب | iOS يجدول عبر `PrayerAlarmModule` (`cancelLegacy`، `clearDelivered`، `schedule({plain})`) | (مغطى بـ `d1a4f1a`) |
+| `d1a4f1a` | 1·3ب | حذف `@notifee/react-native` وكل الحلول المؤقتة (re-assert، guard، maven repo) | ✅ الثلاثة |
+| `2ec5221` | 3أ | `window.js`، `reconciler.js`، `adapters.js`، `scheduleStore.js`، `format.js` + اختبارات | (مع التالي) |
+| `6dab3ca` | 3أ | `clsAlarm` فوق `src/core` + الترحيل + `CoverageBanner` | ✅ الثلاثة ([run](https://github.com/Yousf316/AlarmApp/actions/runs/41911326324)) |
 
-آخر تشغيل CI ناجح بالكامل: https://github.com/Yousf316/AlarmApp/actions/runs/41785112493
+### البنية الحالية للجدولة
+- `src/librarys/clsAlaram.js` — واجهة رقيقة بنفس الـ API للشاشات: `rescheduleAll()` (بلا وسائط الآن)، `cancelAlarm(userTimeId)`، `cancelAll()`، `clearLegacyScheduled()`.
+- `src/core/alarms/`
+  - `model.js` — `normalizeAlarm`، `fromLegacyUserTime` (غفوة 5 د بلا حد للمنبهات القديمة).
+  - `planner.js` — `planOccurrences`: ids حتمية `alarmId|dateKey|prayer`، `fingerprint`، `nid` (int لـ Android).
+  - `window.js` — iOS: `57 منبه + 2 تذكير + 5 احتياطي غفوة = 64`؛ كل غفوة معلقة فوق الخمس تأخذ مكان منبه. Android: 450. `coverageUntil` = آخر منبه. التذكيران `renew-1` (قبل الانتهاء بـ24 س) و`renew-2` (بعده بدقيقة).
+  - `reconciler.js` — diff بالـ id والـ fingerprint؛ تنظيف السجل مقابل `getPendingIds` (iOS) أو بالوقت (Android). لا تغيير ⇒ صفر استدعاءات أصلية.
+  - `adapters.js` — iOS عبر `prayerAlarmNative.js`، Android عبر `NativeModules.AlarmModule`.
+  - `scheduleStore.js` — MMKV: `schedule.map`، `schedule.status` (للبانر)، `schedule.v3` (علامة الترحيل).
+- `src/core/time/format.js` — "المنبهات مجدولة حتى الاثنين 16 نوفمبر (12 يوماً)" بأسماء عربية ثابتة (لا تعتمد على Intl في Hermes).
+- `src/core/prayer/methods.js` — `methodForCountry`: SA→UmmAlQura، EG→Egyptian، AE→Gulf (تطابق ما تعرضه `PrayerScreen`). Gulf بلا fallback محلي.
+- `src/components/CoverageBanner.js` — في تبويب "المنبه" (`AlarmList.js`)، تحذيري عند < يومين.
+- `PrayerScreen.js` ما زال يعرض الأوقات عبر `loadPrayerTimes` القديم (20 يوماً شهرياً) حتى المرحلة 4.
 
-### الملفات المهمة
-- `src/core/storage/` — `mmkv.js` (غلاف: `getJSON/setJSON/nextId`)، `migrateFromSqlite.js`، `timetableStore.js`.
-- `src/core/time/zone.js` — مفاتيح الأيام بمنطقة **المدينة** (Luxon)، لا منطقة الجهاز.
-- `src/core/prayer/` — `methods.js` (أم القرى افتراضياً ↔ Aladhan id ↔ adhan)، `aladhan.js` (جلب سنة كاملة `annual=true&iso8601=true`)، `localCalc.js` (adhan)، `cities.js` (إحداثيات مدمجة)، `timetableRepo.js` (`getTimetable`/`needsRefresh`/`coverageDays`).
-- `src/core/alarms/` — `model.js` (`normalizeAlarm`, `fromLegacyUserTime`)، `planner.js` (`planOccurrences`, ids حتمية، `fingerprint`، `nid` لـ Android)، `prayerAlarmNative.js` (غلاف JS لـ Swift module).
-- `ios/AlarmApp/PrayerAlarmModule.swift` + `.m` + `AlarmApp.entitlements` (Time Sensitive)، و `AppDelegate.swift` (يستدعي `PrayerAlarmCenter.shared.install()` قبل `super`). الدوال: `getPermissionStatus/requestPermission/schedule({plain})/cancel/cancelAll/cancelLegacy/clearDelivered/getPendingIds`.
-- Android: `AlarmModule.kt` (`setAlarm/cancelAlarm/cancelAll/scheduleReminder/cancelReminder/canScheduleExactAlarms`) + `ReminderReceiver.kt` لتذكير التجديد (كان notifee).
-- **الجدولة (3أ):** `src/librarys/clsAlaram.js` واجهة رقيقة (`rescheduleAll/cancelAlarm/cancelAll/clearLegacyScheduled`) فوق `src/core/alarms/`:
-  - `window.js` (pure): نافذة iOS 57 منبه + 2 تذكير + احتياطي 5 غفوات (كل غفوة معلقة فوق الخمس تأخذ مكان منبه)، وAndroid 450، و`coverageUntil`، والتذكيران `renew-1` (قبل الانتهاء بـ24 ساعة) و`renew-2` (بعده بدقيقة).
-  - `reconciler.js`: diff بالـ id والـ fingerprint، يُنظّف المجدول مقابل `getPendingIds` (iOS) أو بالوقت (Android)، ولا يلمس ما لم يتغير. فشل الإلغاء يبقى مسجلاً لإعادة المحاولة.
-  - `adapters.js`: عمليات iOS (`PrayerAlarmModule`) وAndroid (`AlarmModule`)، و`scheduleStore.js`: السجل في MMKV (`schedule.map/status/v3`).
-  - المواقيت من `getTimetable` (سنة كاملة + fallback محلي) بطريقة الدولة (`methodForCountry`: SA/EG/AE)، والمنبهات من `user_times` عبر `fromLegacyUserTime` (غفوة 5 د بلا حد كما كانت).
-  - الترحيل لمرة واحدة (علامة `schedule.v3`): يلغي ما جدولته 1·3ب، ولا يعمل إلا إذا توفرت المواقيت (وإلا لا يُلمس شيء).
-  - `CoverageBanner` في تبويب "المنبه": "المنبهات مجدولة حتى الاثنين 16 نوفمبر (12 يوماً)"، تحذيري عند أقل من يومين.
-  - `PrayerScreen` ما زال يعرض الأوقات عبر `loadPrayerTimes` القديم حتى المرحلة 4.
+### الكود الأصلي
+- **iOS:** `ios/AlarmApp/PrayerAlarmModule.swift` + `.m`. `PrayerAlarmCenter` هو المالك الوحيد لـ `UNUserNotificationCenter.delegate` (يُعيَّن في `AppDelegate` قبل `super`). JS API: `getPermissionStatus`، `requestPermission`، `schedule({id, fireAt, title, body, sound, snoozeMinutes, maxSnooze, plain})`، `cancel(ids)`، `cancelAll(includeSnoozes)`، `cancelLegacy()`، `clearDelivered()`، `getPendingIds()`. الغفوة أصلية بعدّاد في `userInfo` (`maxSnooze 0` = بلا حد)، والأزرار بلا `.foreground`. فئات: `alarm.snooze.1…60` و`alarm.nosnooze`.
+- **Android:** `AlarmModule.kt` (`setAlarm/cancelAlarm/cancelAll/scheduleReminder/cancelReminder/canScheduleExactAlarms`)، `AlarmScheduler.kt` (`setAlarmClock` + حفظ في SharedPreferences واستعادة بعد الإقلاع، والتذكيرات بـ `setAndAllowWhileIdle`)، `ReminderReceiver.kt` (قناة `renew`)، `AlarmService.kt` (رنين بـ MediaPlayer)، `AlarmActivity`، `BootReceiver`. **لا غفوة على Android بعد** (3ب).
 
 ---
 
-## 4. قرارات وانحرافات عن الخطة (مهمة)
+## 4. قرارات مهمة
 
-1. **مكتبة الإشعارات:** Notifee أُرشف (أبريل 2026) فحُذف بالكامل (1·3ب). القرار: **Swift module خاص** (`PrayerAlarmModule`) على iOS و Kotlin على Android. إذن الإشعارات: iOS عبر `PrayerAlarmModule.requestPermission`، و Android 13+ عبر `PermissionsAndroid` (حُذف الطلب الأصلي والـ Toast من `MainActivity`).
-2. **ملكية الـ delegate:** `PrayerAlarmCenter` هو المالك الوحيد لـ `UNUserNotificationCenter.delegate`، يُعيَّن في `didFinishLaunching` قبل JS. حُذفت حلول notifee المؤقتة (re-assert، `ensureCategories`، التمرير لـ legacy delegate، `notifeeGuard.js`).
-   - **ترحيل المنبهات القديمة:** منبهات notifee المعلقة لها ids مختلفة، فيزيلها `cancelLegacy()` (كل معلّق ليس عليه `prayerAlarm=true`) عند أول `rescheduleAll`. تحقق على المحاكي: 61 طلباً قديماً أُزيلت وجُدول 61 أصلياً بلا تراكم عند إعادة التشغيل.
-   - **تذكير التجديد:** iOS إشعار `plain` (بلا أزرار، `.active`)، و Android `AlarmModule.scheduleReminder` (AlarmManager غير exact، يُستعاد بعد الإقلاع).
-3. **أزرار الغفوة/الإيقاف** بلا `.foreground`؛ الغفوة تُجدول **أصلياً** في Swift بعدّاد في `userInfo` (`maxSnooze 0` = بلا حد، `snoozeMinutes 0` = بلا زر). categories: `alarm.snooze.1…60` و `alarm.nosnooze`، تُدمج مع categories الموجودة.
-4. **MMKV v3 بدل v4:** v4 يعتمد على `react-native-nitro-modules` الذي لا يُبنى على iOS مع RN 0.78 (`import of module 'glog.glog.log_severity' appears within namespace 'google'`). v3 = TurboModule بنفس المحرك. الـ API: `new MMKV({id})`.
-5. **`react-native-sqlite-storage` لم يُحذف:** الهجرة تحتاجه لقراءة القاعدة القديمة. احذفه لاحقاً (مثلاً مع 1·3ب) بعد فترة كافية.
-6. **`Podfile` → `post_install`:** pod `fmt` يُبنى بـ `c++17` و `FMT_USE_CONSTEVAL=0` (وإلا يفشل مع Xcode 26). لا تحذف هذا.
-7. **ملف الصوت:** يوجد `ios/Resources/radar.mp3` فقط، وهو غير مُضاف للـ target. iOS لا يشغّل mp3 للإشعارات → الصوت الافتراضي حالياً. على الماك يمكن التحويل: `afconvert -f caff -d LEI16 radar.mp3 radar.caf` (≤30 ث) وإضافته لـ Copy Bundle Resources.
-8. **زر "منبه تجريبي بعد 10 ثوانٍ"** في `AlarmList` (iOS فقط) — **مؤقت** للتحقق، ينتقل لشاشة الإعدادات في المرحلة 4.
+1. **notifee حُذف** (مؤرشف). iOS: Swift module خاص؛ Android: Kotlin. الإذن: iOS عبر `PrayerAlarmModule.requestPermission`، Android 13+ عبر `PermissionsAndroid`.
+2. **الترحيل من الأنظمة القديمة:**
+   - منبهات notifee (ids مختلفة) يزيلها `cancelLegacy()` = كل طلب معلّق بلا `prayerAlarm=true`.
+   - منبهات 1·3ب (`alarm-<n>`، `renew-reminder`) يزيلها ترحيل 3أ لمرة واحدة (`schedule.v3`)، **ولا يعمل إلا إذا توفرت المواقيت** (لا يُترك المستخدم بلا منبهات عند انقطاع الشبكة).
+3. **MMKV v3 بدل v4** (v4/Nitro لا يُبنى على iOS مع RN 0.78).
+4. **`react-native-sqlite-storage` باقٍ** لأن هجرة SQLite → MMKV تقرأ القاعدة القديمة. احذفه لاحقاً بعد فترة كافية.
+5. **`Podfile` → `post_install`:** pod `fmt` بـ `c++17` و`FMT_USE_CONSTEVAL=0` (لازم لـ Xcode 26). لا تحذفه.
+6. **الصوت:** الكود يطلب `radar.caf` وهو غير موجود → الصوت الافتراضي. يوجد `ios/Resources/radar.mp3` (غير مضاف للـ target). المستخدم أضاف محلياً `ios/Resources/alarmios.wav` (22.8 ث، 4 MB، **غير متتبَّع**) — لم يُقرَّر استخدامه (يفضَّل تحويله لـ CAF ≤30 ث؛ حقوق الاستخدام غير مؤكدة).
+7. **زر "منبه تجريبي بعد 10 ثوانٍ"** في `AlarmList` (iOS) مؤقت؛ ينتقل لشاشة الإعدادات في المرحلة 4.
+8. **`rescheduleAll` يُستدعى عند:** الإقلاع، العودة للمقدمة، إضافة منبه، تغيير المدينة. رخيص عندما لا يتغير شيء.
 
 ---
 
 ## 5. ما لم يُتحقق منه بعد
 
-- **Android وقت التشغيل:** لا يوجد Android SDK/Java/محاكي على الماك. CI يبني `assembleDebug` فقط. تذكير التجديد (`ReminderReceiver`) وطلب `POST_NOTIFICATIONS` من JS لم يُجرَّبا فعلياً؛ يلزم جهاز أو محاكي.
-- نداء Aladhan الحقيقي بصيغة `annual=true` (fallback المحلي يغطي أي اختلاف).
+- **Android وقت التشغيل إطلاقاً:** التذكيران (`ReminderReceiver`)، طلب الإذن من JS، الجدولة الجديدة بـ `nid`. CI يبني فقط.
+- **أزرار الغفوة بعد حذف notifee و3أ:** جُرّبت قبلهما؛ الكود الأصلي للغفوة لم يتغير، لكن يُستحسن أن يجرّب المستخدم المنبه التجريبي مرة (الضغط المطوّل لا يمكن محاكاته من هنا).
+- نداء Aladhan الحقيقي `annual=true` على شبكة حقيقية (الجدول المحفوظ جاء من مكان ما، لكن لم يُفحص مصدره: `schedule.status.source`).
 - هجرة SQLite → MMKV على بيانات حقيقية.
-- الصوت والوضع الصامت وFocus وAlarmKit (جهاز حقيقي — TestFlight، المرحلة 7). الصوت الحالي الافتراضي لأن `radar.caf` غير موجود.
-
-## 6. حالة التحقق ودروس 1·3أ/1·3ب (محاكي iOS 18.3، Xcode 16.2)
-
-- ✅ الإشعار يصل والتطبيق مقتول، وأزرار الغفوة/الإيقاف تعمل (تجربة المستخدم)، والغفوة أصلية.
-- ✅ **خلل وُجد وأُصلح (`06a13e8`):** `notifee.setNotificationCategories` يستبدل كل الفئات فتختفي الأزرار. زال بحذف notifee.
-- ✅ بعد 1·3ب: لا تحذير delegate، ولا `Setting 1 notification categories`، والترحيل من منبهات notifee يعمل (أعلاه).
-- ⚠️ أدوات التحكم بالمحاكي من هنا: لا `idb`. نقر بأحداث CGEvent (يحتاج منح Terminal صلاحية Accessibility)؛ الضغط المطوّل على الإشعار لا يعمل بالمحاكاة، فاختبار الأزرار يدوي.
-- ⚠️ الواجهة تتحول إلى RTL **بعد أول إقلاع** (تبدّل التبويبات)؛ انتبه عند كتابة اختبارات E2E.
-- بيئة البناء المحلي: `bundle exec pod install` يختار CocoaPods 1.15.2 (`Gemfile` يثبّت `xcodeproj < 1.26`) وعلى Xcode 16.2 يفشل pod sqlite بـ `React-Core.modulemap not found`. الحل: `/usr/local/bin/pod install` (1.16.2). على CI لا تظهر المشكلة (Xcode 26). `pod install` يعدّل `project.pbxproj` شكلياً — لا تلتزم به.
-- CI: runners الـ macOS تتأخر أحياناً حتى تُلغى المهمة بـ `The job was not acquired by Runner` — ليس خللاً بالكود؛ أعد تشغيل المهمة. و`cancel-in-progress` يلغي تشغيل الـ commit السابق عند push جديد.
-
-**الخطوة التالية:** المرحلة 3ب (Android أصلي، القسم 7). `react-native-sqlite-storage` يبقى للهجرة.
+- الصوت، الوضع الصامت، Focus، AlarmKit (جهاز حقيقي — المرحلة 7).
 
 ---
 
-## 7. المرحلة 3
+## 6. دروس وأدوات (محاكي iOS)
 
-**3أ — ✅ منفَّذة** (ربط المنطق الجديد بالجدولة، القسم 3). تحقق على المحاكي: الترحيل أزال 61 إشعاراً قديماً وجدول 59 (57+2)؛ إعادة الإقلاع بلا أي Add/Remove؛ إضافة منبه للفجر أضافت وألغت 12 فقط (النافذة تنزاح)، وحذفه ملأ الفراغ؛ التغطية تنكمش وتتسع بما يطابق الحساب.
-اختبارات Jest الأربعة المطلوبة موجودة: `__tests__/window.test.js` (57+2+5≤64، امتلاء احتياطي الغفوة، `coverageUntil` والتذكيران)، `reconciler.test.js` (نفس الـ id بـ offsetMin/صوت مختلف، لا تغيير = صفر استدعاءات)، `format.test.js`، `clsAlarm.test.js`.
+- **السجلات:** `xcrun simctl spawn booted log show --last 5m --info --debug --predicate 'process == "AlarmApp" AND subsystem == "com.apple.UserNotifications"'` — ابحث عن `Got N pending`، `Removing N pending`، `Added notification request`، `Setting N notification categories`. هذا أدق طريقة لعدّ ما جُدول وأُلغي.
+- **التحكم بالواجهة:** لا `idb`. استُعمل برنامج Swift صغير يرسل أحداث CGEvent (نقر/سحب) — يحتاج أن يمنح المستخدم Terminal/VS Code صلاحية Accessibility (مُنحت في هذه الجلسة). الأدوات كانت في scratchpad الجلسة وليست في المستودع. التحويل: إحداثيات الجهاز (402×874 pt) → الشاشة عبر موضع عنصر `AXGroup` في نافذة Simulator (اقرأه في كل مرة؛ النافذة تتحرك).
+- **الضغط المطوّل على الإشعار لا يعمل بالمحاكاة** → اختبار الأزرار يدوي من المستخدم.
+- **الواجهة تتحول إلى RTL بعد أول إقلاع** (`I18nManager.forceRTL` في `PrayerScreen`) فتتبدل أماكن التبويبات — انتبه في E2E.
+- **Fast Refresh يعيد تشغيل JS عند حفظ الملفات** والتطبيق مفتوح → قد تجري الجدولة/الترحيل أثناء التعديل. أغلق التطبيق قبل تجارب "أول إقلاع".
+- **حالة المحاكي الآن:** منبه واحد "قبل كل الصلوات بـ 00:05" مجدول بالنظام الجديد (59 طلباً)، والمدينة جدة.
 
-قسّم الباقي إلى commits:
+---
 
-**3ب — Android أصلي:** extras (soundId, style, snoozeMin, maxSnooze, snoozeCount) في `AlarmScheduler`؛ `SnoozeReceiver` أصلي؛ زر غفوة في `AlarmActivity`؛ صوت من `res/raw` بـ USAGE_ALARM؛ قناة لكل صوت؛ فحص `canUseFullScreenIntent()` قبل كل رنين مع fallback لإشعار IMPORTANCE_HIGH/category ALARM بأزرار؛ دوال أذونات/بطارية/autostart/preview في `AlarmModule`؛ إزالة فتح الإعدادات التلقائي من `MainActivity`.
+## 7. الخطوة التالية
 
-**3ج — iOS أصلي:** عند جدولة غفوة ووصول المعلق إلى 64: إلغاء أبعد منبه (غير غفوة) في Swift وإزاحة التذكيرين (ids ثابتة) إلى آخر منبه متبقٍ.
+**قرار معلّق للمستخدم:** هل نثبّت Android Studio + محاكي على الماك (~8–10 GB) قبل 3ب؟ (في 1·3ب اختار المستخدم "CI فقط"، لكن 3ب كله كود Android لا يمكن التحقق منه وقت التشغيل بدونه.) اسأله، ثم اعرض خطة 3ب للموافقة.
 
-ثم المراحل 4–8 كما في `docs/PLAN.md`.
+**3ب — Android أصلي:** extras (soundId, style, snoozeMin, maxSnooze, snoozeCount) في `AlarmScheduler`؛ `SnoozeReceiver` أصلي يخفي الزر عند الحد؛ زر غفوة في `AlarmActivity` والإشعار؛ صوت من `res/raw` بـ USAGE_ALARM؛ قناة لكل صوت لنمط "notification"؛ فحص `canUseFullScreenIntent()` قبل كل رنين مع fallback لإشعار IMPORTANCE_HIGH/category ALARM بأزرار؛ دوال أذونات/بطارية/autostart/preview في `AlarmModule`؛ إزالة فتح الإعدادات التلقائي من `MainActivity`. يلزم توسيع `adapters.js` (Android) لتمرير الغفوة والصوت، وتمديد `setAlarm`.
+
+**3ج — iOS أصلي:** عند جدولة غفوة ووصول المعلق إلى 64: يلغي Swift أبعد منبه (غير غفوة) ويزيح التذكيرين (`renew-1/renew-2`) إلى آخر منبه متبقٍ. (JS يعيد ملء النافذة عند الـ reconcile التالي؛ `window.js` يحسب الغفوات المعلقة أصلاً.)
+
+ثم المراحل 4–8 كما في `docs/PLAN.md` (الواجهة الجديدة، AlarmKit، المهام الخلفية، Maestro + TestFlight، Widget اختياري).
 
 ---
 
 ## 8. تفضيلات المستخدم وطريقة العمل
 
-- **commit لكل مرحلة/خطوة** مع تحقق (Jest + build) قبل التالية؛ الخطة تُعرض للموافقة قبل التغييرات الكبيرة.
-- **بعد كل push تحقّق من GitHub Actions بنفسك** — لا تطلب من المستخدم نسخ النتائج. إن لم يكن `gh` مسجلاً: الـ REST API العام (60 طلباً/ساعة بلا توثيق — افحص كل 3–4 دقائق، ولا تكرر بحلقة سريعة). خطوة "Surface build errors" في CI تطبع أسطر `error:` كـ annotations: `GET /repos/Yousf316/AlarmApp/check-runs/{job_id}/annotations`.
-- اشرح القيود بصدق (ما لم يُختبر، ما يحتاج جهازاً حقيقياً).
-- ما يحتاجه المستخدم لاحقاً لـ TestFlight مذكور في `docs/PLAN.md` (المرحلة 7): Apple Developer Program، App ID مع Time Sensitive، App Store Connect API key، مستودع خاص لـ fastlane match، GitHub Secrets.
-- ملفات الأذان الحقيقية لم يقدّمها المستخدم بعد (مع حقوق الاستخدام).
+- **الخطة تُعرض للموافقة قبل أي تغيير كبير** (plan mode)، ثم **commit لكل خطوة** مع تحقق (Jest + build) قبل التالية.
+- **لا commit ولا push لملفات لم يطلبها**؛ ملفاته غير المتتبَّعة: `Gemfile.lock` (مولَّد محلياً)، `ios/AlarmApp/AlarmAppDebug.entitlements` (غرضه غير معروف، غير مُشار إليه في المشروع)، `ios/Resources/alarmios.wav`.
+- **بعد كل push تحقّق من GitHub Actions بنفسك**؛ `gh` غير مثبت → REST API العام (60 طلباً/ساعة؛ افحص كل ~3 دقائق). استعمل `json.loads(..., strict=False)` (الاستجابة فيها أحرف تحكم). annotations: `GET /repos/Yousf316/AlarmApp/check-runs/{job_id}/annotations`.
+- **CI:** `concurrency: cancel-in-progress` → لا تدفع commit جديداً قبل انتهاء تشغيل السابق إن أردت نتيجته. runners الـ macOS تتأخر أحياناً حتى `The job was not acquired by Runner` (ليس خللاً بالكود) → المستخدم يضغط "Re-run failed jobs" (لا نملك توكن).
+- اشرح القيود بصدق (ما لم يُختبر، ما يحتاج جهازاً حقيقياً). اطلب منه الخطوات اليدوية (الضغط المطوّل على الإشعار) بتعليمات واضحة.
+- لاحقاً لـ TestFlight (المرحلة 7): Apple Developer Program، App ID مع Time Sensitive، App Store Connect API key، مستودع خاص لـ fastlane match، GitHub Secrets. ملفات الأذان الحقيقية لم تُقدَّم بعد.
 
 ---
 
-## 9. ملاحظات تقنية متفرقة
+## 9. ملاحظات تقنية
 
-- Jest: `jest.setup.js` يحوي mocks لـ notifee و MMKV (in-memory) و sqlite و `NativeModules.AlarmModule` و `NativeModules.PrayerAlarmModule`.
-- كثير من الملفات بنهايات أسطر مختلطة (Git يحوّل LF→CRLF). `ios/AlarmApp.xcodeproj/project.pbxproj` و `AppDelegate.swift` بـ **CRLF** — حافظ عليها عند التعديل أو استخدم Xcode.
-- مُعرّفات pbxproj المضافة يدوياً تبدأ بـ `A1000001…A1000005`.
-- `android/gradlew` يحتاج بت التنفيذ (مُعيَّن في git).
-- Lint: لا أخطاء، تحذيرات تنسيق قديمة فقط.
+- **Jest:** `jest.setup.js` فيه mocks لـ MMKV (in-memory، يدعم `clearAll`)، sqlite، `NativeModules.AlarmModule` (مع `scheduleReminder/cancelReminder`)، `NativeModules.PrayerAlarmModule` (مع `cancelLegacy/clearDelivered`). `Platform.Version` getter للقراءة فقط في Jest → `Object.defineProperty`.
+- **tsc:** خطأ قديم وحيد مقبول: `App.tsx: Parameter 'e' implicitly has an 'any' type`.
+- **ESLint:** لا أخطاء؛ تحذيرات قديمة فقط (منها bitwise مقصود في `planner.js`).
+- **نهايات الأسطر:** على هذا الماك الملفات LF (بما فيها `project.pbxproj` و`AppDelegate.swift`)، خلافاً لما ذكره تقرير Windows.
+- مُعرّفات pbxproj المضافة يدوياً تبدأ بـ `A1000001…A1000005`. `android/gradlew` يحتاج بت التنفيذ (مُعيَّن في git).
